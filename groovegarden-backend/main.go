@@ -8,6 +8,7 @@ import (
 
 	"groovegarden/database"
 	"groovegarden/routes"
+	"groovegarden/websocket"
 )
 
 func main() {
@@ -20,16 +21,15 @@ func main() {
 	router.Use(corsMiddleware)
 	fmt.Println("Router initialized with CORS")
 
-	// Register routes
+	// Register existing routes
 	routes.RegisterRoutes(router)
-	fmt.Println("Routes registered")
 
-	// WebSocket route
-	// go handleMessages()
-	// fmt.Println("WebSocket route initialized")
-	// router.HandleFunc("/ws", handleConnections)
+	// Set up WebSocket routes
+	go websocket.HandleMessages()
+	router.HandleFunc("/ws", websocket.HandleConnections)
+	fmt.Println("WebSocket route initialized")
 
-	// Start the server and listen on port 8080
+	// Start the server
 	fmt.Println("Starting server on port 8080...")
 	if err := http.ListenAndServe(":8080", router); err != nil {
 		fmt.Printf("Error starting server: %v\n", err)

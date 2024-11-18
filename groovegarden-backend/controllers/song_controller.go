@@ -8,6 +8,7 @@ import (
 
 	"groovegarden/database"
 	"groovegarden/models"
+	"groovegarden/websocket"
 )
 
 // Get all songs
@@ -31,18 +32,8 @@ func GetSongs(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, songs)
 }
 
-// Vote for a song
-func VoteForSong(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	_, err := database.DB.Exec("UPDATE songs SET votes = votes + 1 WHERE id = $1", id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	render.JSON(w, r, map[string]string{"message": "Vote counted"})
-}
 
-// Add a new song
+// Add a new song and notify clients
 func AddSong(w http.ResponseWriter, r *http.Request) {
 	var song models.Song
 	if err := render.DecodeJSON(r.Body, &song); err != nil {
@@ -55,5 +46,20 @@ func AddSong(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	websocket.NotifyClients("song_added", song)
 	render.JSON(w, r, map[string]string{"message": "Song added"})
+}
+
+// Vote for a song and notify clients
+func VoteForSong(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	_, err := database.DB.Exec("UPDATE songs SET votes = votes + 1 WHERE id = $1", id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	websocket.NotifyClients("vote_cast", id)
+	render.JSON(w, r, map[string]string{"message": "Vote counted"})
 }
