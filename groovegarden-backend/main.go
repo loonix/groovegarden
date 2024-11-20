@@ -2,11 +2,15 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/joho/godotenv"
 
 	"groovegarden/database"
+	"groovegarden/oauth"
 	"groovegarden/routes"
 	"groovegarden/websocket"
 )
@@ -19,21 +23,35 @@ func main() {
 	// Set up the router
 	router := chi.NewRouter()
 	router.Use(corsMiddleware)
-	fmt.Println("Router initialized with CORS")
 
-	// Register existing routes
+	// Register routes
 	routes.RegisterRoutes(router)
 
-	// Set up WebSocket routes
+	// WebSocket routes
 	go websocket.HandleMessages()
 	router.HandleFunc("/ws", websocket.HandleConnections)
-	fmt.Println("WebSocket route initialized")
+
+	// Load environment variables
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	// Get OAuth credentials from environment variables
+	clientID := os.Getenv("GOOGLE_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	redirectURL := os.Getenv("REDIRECT_URL")
+
+	// Initialize Google OAuth
+	oauth.InitGoogleOAuth(clientID, clientSecret, redirectURL)
+
+	// OAuth routes
+	router.Get("/oauth/login", oauth.GoogleLogin)
+	router.Get("/oauth/callback", oauth.GoogleCallback)
 
 	// Start the server
-	fmt.Println("Starting server on port 8080...")
-	if err := http.ListenAndServe(":8080", router); err != nil {
-		fmt.Printf("Error starting server: %v\n", err)
-	}
+	fmt.Println("Starting server on port 8081...")
+	log.Fatal(http.ListenAndServe(":8081", router))
 }
 
 // CORS Middleware
