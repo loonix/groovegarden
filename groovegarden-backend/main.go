@@ -50,8 +50,12 @@ func main() {
 	router.Get("/oauth/callback", oauth.GoogleCallback)
 
 	// Start the server
-	fmt.Println("Starting server on port 8081...")
-	log.Fatal(http.ListenAndServe(":8081", router))
+	port := os.Getenv("SERVER_PORT")
+	if port == "" {
+		port = "8081" // Default port if not specified in .env
+	}
+	fmt.Printf("Starting server on port %s...\n", port)
+	log.Fatal(http.ListenAndServe(":"+port, router))
 }
 
 // CORS Middleware

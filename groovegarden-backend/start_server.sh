@@ -1,6 +1,11 @@
 #!/bin/bash
 
-PORT=8081
+# Load environment variables from .env file
+if [ -f .env ]; then
+  export $(grep -v '^#' .env | xargs)
+fi
+
+PORT=${SERVER_PORT:-8081}
 
 # Find the PID of the process using the port
 PID=$(lsof -t -i:$PORT)

@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:8081';
+  static String baseUrl = 'http://localhost:${dotenv.env['SERVER_PORT']}';
 
   // Fetch songs from the backend
   static Future<List<dynamic>> fetchSongs() async {

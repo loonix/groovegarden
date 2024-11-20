@@ -7,7 +7,7 @@ class WebSocketService {
   void connect(Function(dynamic) onMessage) {
     // Connect to the WebSocket server
     channel = WebSocketChannel.connect(
-      Uri.parse('ws://localhost:8081/ws'),
+      Uri.parse('ws://localhost:${const String.fromEnvironment('SERVER_PORT', defaultValue: '8081')}/ws'),
     );
 
     // Listen for incoming messages
