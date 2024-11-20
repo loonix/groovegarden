@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"golang.org/x/oauth2"
 
 	"groovegarden/controllers"
+	"groovegarden/utils"
 )
 
 // GoogleLogin initiates the OAuth flow
@@ -16,7 +18,6 @@ func GoogleLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
-// GoogleCallback handles the OAuth callback
 func GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	if code == "" {
@@ -60,11 +61,26 @@ func GoogleCallback(w http.ResponseWriter, r *http.Request) {
 		"account_type":    "listener", // Default type
 		"profile_picture": userInfo.Picture,
 	}
-	err = controllers.UpsertUserFromOAuth(user)
+	userID, err := controllers.UpsertUserFromOAuth(user)
 	if err != nil {
 		http.Error(w, "Failed to upsert user: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+
+	// Generate a JWT for the user
+	jwtToken, err := utils.GenerateJWT(userID)
+	if err != nil {
+		http.Error(w, "Failed to generate JWT: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Send the JWT to the client
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    jwtToken,
+		Expires:  time.Now().Add(24 * time.Hour),
+		HttpOnly: true, // Prevents JavaScript access
+	})
 	fmt.Fprintf(w, "Welcome, %s!", userInfo.Name)
 }

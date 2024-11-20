@@ -13,7 +13,9 @@ import (
 )
 
 // UpsertUserFromOAuth creates or updates a user based on OAuth data
-func UpsertUserFromOAuth(user map[string]interface{}) error {
+func UpsertUserFromOAuth(user map[string]interface{}) (int, error) {
+	var userID int
+
 	query := `
 		INSERT INTO users (name, email, account_type, profile_picture, created_at, last_seen)
 		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
@@ -26,13 +28,13 @@ func UpsertUserFromOAuth(user map[string]interface{}) error {
 		RETURNING id;
 	`
 
-	_, err := database.DB.Exec(query, user["name"], user["email"], user["account_type"], user["profile_picture"])
+	err := database.DB.QueryRow(query, user["name"], user["email"], user["account_type"], user["profile_picture"]).Scan(&userID)
 	if err != nil {
 		log.Printf("Failed to upsert user: %v", err)
-		return err
+		return 0, err
 	}
 
-	return nil
+	return userID, nil
 }
 
 // Create or Update a User
