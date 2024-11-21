@@ -67,13 +67,16 @@ func GoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+// After upserting the user, retrieve their role
+userRole := user["account_type"].(string) // Assuming the role is returned in user data
 
-	// Generate a JWT for the user
-	jwtToken, err := utils.GenerateJWT(userID)
-	if err != nil {
-		http.Error(w, "Failed to generate JWT: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
+// Generate the JWT
+jwtToken, err := utils.GenerateJWT(userID, userRole)
+if err != nil {
+	http.Error(w, "Failed to generate JWT: "+err.Error(), http.StatusInternalServerError)
+	return
+}
+
 
 	// Send the JWT to the client
 	http.SetCookie(w, &http.Cookie{
