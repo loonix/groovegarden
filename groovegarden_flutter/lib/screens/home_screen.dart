@@ -1,77 +1,93 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
 import '../services/websocket_service.dart';
+import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import 'dart:convert';
 
 class HomeScreen extends StatefulWidget {
+  final String jwtToken; // Pass JWT token to the screen
+
+  const HomeScreen({required this.jwtToken});
+
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  _HomeScreenState createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List songs = [];
-  late WebSocketService webSocketService;
+  late WebSocketService _webSocketService;
+  List<Map<String, dynamic>> _songs = [];
+  String? userRole;
 
   @override
   void initState() {
     super.initState();
-    fetchSongs();
-    initWebSocket();
-  }
 
-  void initWebSocket() {
-    webSocketService = WebSocketService();
-    webSocketService.connect((message) {
-      final decodedMessage = jsonDecode(message);
+    // Decode the JWT and extract the user's role
+    final decodedJWT = AuthService.decodeJWT(widget.jwtToken);
+    userRole = decodedJWT['role'];
 
-      if (decodedMessage['type'] == 'song_added' || decodedMessage['type'] == 'vote_cast') {
-        fetchSongs(); // Refresh the song list on updates
-      }
-    });
-  }
-
-  Future<void> fetchSongs() async {
-    try {
-      final fetchedSongs = await ApiService.fetchSongs();
+    // Fetch songs from the backend
+    ApiService.fetchSongs().then((fetchedSongs) {
       setState(() {
-        songs = fetchedSongs;
+        _songs = fetchedSongs.cast<Map<String, dynamic>>();
       });
-    } catch (e) {
-      print('Error fetching songs: $e');
-    }
+    }).catchError((error) {
+      print('Error fetching songs: $error');
+    });
+
+    // Connect to WebSocket and handle incoming messages
+    _webSocketService = WebSocketService();
+    _webSocketService.connect((message) {
+      final data = jsonDecode(message);
+
+      setState(() {
+        if (data['event'] == 'vote_cast') {
+          final updatedSong = data['payload'];
+          final songIndex = _songs.indexWhere((song) => song['id'] == updatedSong['id']);
+          if (songIndex != -1) {
+            _songs[songIndex] = updatedSong;
+          }
+        } else if (data['event'] == 'song_added') {
+          _songs.add(data['payload']);
+        }
+      });
+    });
   }
 
   @override
   void dispose() {
-    webSocketService.disconnect();
+    _webSocketService.disconnect();
     super.dispose();
+  }
+
+  void _uploadNewSong() {
+    // Implement song upload functionality
+    print('Uploading a new song...');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('GrooveGarden'),
+        title: Text('GrooveGarden'),
       ),
-      body: songs.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: songs.length,
-              itemBuilder: (context, index) {
-                final song = songs[index];
-                return ListTile(
-                  title: Text(song['title']),
-                  subtitle: Text('Votes: ${song['votes']}'),
-                  trailing: ElevatedButton(
-                    onPressed: () async {
-                      await ApiService.voteForSong(song['id']);
-                      fetchSongs(); // Refresh the list after voting
-                    },
-                    child: const Text('Vote'),
-                  ),
-                );
-              },
-            ),
+      body: ListView.builder(
+        itemCount: _songs.length,
+        itemBuilder: (context, index) {
+          final song = _songs[index];
+          return ListTile(
+            title: Text(song['title']),
+            subtitle: Text('Votes: ${song['votes']}'),
+          );
+        },
+      ),
+      floatingActionButton: userRole == 'artist'
+          ? FloatingActionButton(
+              onPressed: _uploadNewSong,
+              child: Icon(Icons.add),
+              tooltip: 'Upload New Song',
+            )
+          : null, // Hide the button for non-artists
     );
   }
 }
