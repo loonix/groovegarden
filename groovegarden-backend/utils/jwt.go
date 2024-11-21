@@ -7,19 +7,19 @@ import (
 )
 
 var jwtSecret = []byte("your_jwt_secret") // Replace with a secure secret in production
-
-// GenerateJWT generates a JWT for the given user ID
-func GenerateJWT(userID int) (string, error) {
+// GenerateJWT generates a JWT for the given user ID and role
+func GenerateJWT(userID int, role string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
+		"role":    role, // Add the user's role to the claims
 		"exp":     time.Now().Add(time.Hour * 24).Unix(), // Token expires in 24 hours
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(jwtSecret)
 }
 
-// ValidateJWT validates the given JWT and returns the user ID if valid
-func ValidateJWT(tokenString string) (int, error) {
+// ValidateJWTAndGetClaims validates the given JWT and returns the claims if valid
+func ValidateJWTAndGetClaims(tokenString string) (jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, jwt.ErrSignatureInvalid
@@ -28,13 +28,13 @@ func ValidateJWT(tokenString string) (int, error) {
 	})
 
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		userID := int(claims["user_id"].(float64))
-		return userID, nil
+		return claims, nil
 	}
 
-	return 0, jwt.ErrInvalidKey
+	return nil, jwt.ErrInvalidKey
 }
+
