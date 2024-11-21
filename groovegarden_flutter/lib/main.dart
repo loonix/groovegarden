@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
 
-void main() {
-  runApp(GrooveGardenApp());
+void main() async {
+  // Ensure Flutter is initialized
+  WidgetsFlutterBinding.ensureInitialized();
+
+  runApp(const GrooveGardenApp());
 }
 
 class GrooveGardenApp extends StatelessWidget {
+  const GrooveGardenApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
