@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -35,21 +37,27 @@ func GetSongs(w http.ResponseWriter, r *http.Request) {
 
 func AddSong(w http.ResponseWriter, r *http.Request) {
 	var song models.Song
-	if err := render.DecodeJSON(r.Body, &song); err != nil {
+	fmt.Println("Received /add request")
+
+	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
+		fmt.Printf("Error decoding JSON: %v\n", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	fmt.Printf("Decoded Song: %+v\n", song)
+
 	_, err := database.DB.Exec("INSERT INTO songs (title, url, votes) VALUES ($1, $2, 0)", song.Title, song.URL)
 	if err != nil {
+		fmt.Printf("Error inserting into DB: %v\n", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Notify clients about the new song
-	websocket.NotifyClients("song_added", song)
+	fmt.Println("Song added successfully")
 	render.JSON(w, r, map[string]string{"message": "Song added"})
 }
+
 
 
 // Vote for a song and notify clients
