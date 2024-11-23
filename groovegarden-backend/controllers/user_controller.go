@@ -1,9 +1,9 @@
 package controllers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/go-chi/render"
@@ -12,30 +12,40 @@ import (
 	"groovegarden/models"
 )
 
-// UpsertUserFromOAuth creates or updates a user based on OAuth data
+// UpsertUserFromOAuth creates or updates a user in the database
 func UpsertUserFromOAuth(user map[string]interface{}) (int, error) {
 	var userID int
+	var role string
 
-	query := `
-		INSERT INTO users (name, email, account_type, profile_picture, created_at, last_seen)
-		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-		ON CONFLICT (email)
-		DO UPDATE SET
-			name = $1,
-			account_type = $3,
-			profile_picture = $4,
-			last_seen = CURRENT_TIMESTAMP
-		RETURNING id;
-	`
+	// Check if the user already exists
+	err := database.DB.QueryRow(
+		"SELECT id, account_type FROM users WHERE email = $1",
+		user["email"],
+	).Scan(&userID, &role)
 
-	err := database.DB.QueryRow(query, user["name"], user["email"], user["account_type"], user["profile_picture"]).Scan(&userID)
-	if err != nil {
-		log.Printf("Failed to upsert user: %v", err)
-		return 0, err
+	if err == sql.ErrNoRows {
+		// Insert new user if not found
+		err = database.DB.QueryRow(
+			`INSERT INTO users (email, name, account_type, profile_picture, created_at) 
+			 VALUES ($1, $2, $3, $4, NOW())
+			 RETURNING id`,
+			user["email"], user["name"], user["account_type"], user["profile_picture"],
+		).Scan(&userID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to insert new user: %w", err)
+		}
+		// Use the provided account type for new users
+		role = user["account_type"].(string)
+	} else if err != nil {
+		// Handle other errors
+		return 0, fmt.Errorf("failed to query user: %w", err)
 	}
 
+	// If the user exists, return the existing role
+	user["account_type"] = role
 	return userID, nil
 }
+
 
 // Create or Update a User
 func UpsertUser(w http.ResponseWriter, r *http.Request) {
