@@ -11,12 +11,13 @@ var jwtSecret = []byte("your_jwt_secret") // Replace with a secure secret in pro
 func GenerateJWT(userID int, role string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
-		"role":    role, // Add the user's role to the claims
-		"exp":     time.Now().Add(time.Hour * 24).Unix(), // Token expires in 24 hours
+									"role":    role, // Ensure this is passed correctly
+		"exp":     time.Now().Add(time.Hour * 24).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(jwtSecret)
 }
+
 
 // ValidateJWTAndGetClaims validates the given JWT and returns the claims if valid
 func ValidateJWTAndGetClaims(tokenString string) (jwt.MapClaims, error) {
