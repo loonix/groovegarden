@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:groovegarden_flutter/screens/login_screen.dart';
 import 'package:groovegarden_flutter/screens/song_upload_screen.dart';
@@ -42,19 +44,23 @@ class _HomeScreenState extends State<HomeScreen> {
     // Connect to WebSocket and handle incoming messages
     _webSocketService = WebSocketService();
     _webSocketService.connect((message) {
-      final data = jsonDecode(message);
+      try {
+        final data = jsonDecode(message);
 
-      setState(() {
-        if (data['event'] == 'vote_cast') {
-          final updatedSong = data['payload'];
-          final songIndex = _songs.indexWhere((song) => song['id'] == updatedSong['id']);
-          if (songIndex != -1) {
-            _songs[songIndex] = updatedSong;
+        setState(() {
+          if (data['event'] == 'vote_cast') {
+            final updatedSong = data['payload'];
+            final songIndex = _songs.indexWhere((song) => song['id'] == updatedSong['id']);
+            if (songIndex != -1) {
+              _songs[songIndex] = updatedSong;
+            }
+          } else if (data['event'] == 'song_added') {
+            _songs.add(data['payload']);
           }
-        } else if (data['event'] == 'song_added') {
-          _songs.add(data['payload']);
-        }
-      });
+        });
+      } catch (e) {
+        print('Error parsing WebSocket message: $e');
+      }
     });
   }
 
@@ -73,11 +79,26 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _voteForSong(int songId) async {
+    debugger();
+    try {
+      await ApiService.voteForSong(songId, widget.jwtToken);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vote cast successfully!')),
+      );
+    } catch (e) {
+      print('Error voting for song: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to cast vote')),
+      );
+    }
+  }
+
   Future<void> _logout() async {
     await SecureStorage.deleteToken();
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => LoginScreen()),
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
     );
   }
 
@@ -91,7 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('GrooveGarden'),
         actions: [
           IconButton(
-            icon: Icon(Icons.logout),
+            icon: const Icon(Icons.logout),
             onPressed: _logout,
             tooltip: 'Logout',
           ),
@@ -104,6 +125,11 @@ class _HomeScreenState extends State<HomeScreen> {
           return ListTile(
             title: Text(song['title']),
             subtitle: Text('Votes: ${song['votes']}'),
+            trailing: IconButton(
+              icon: const Icon(Icons.thumb_up),
+              tooltip: 'Vote for this song',
+              onPressed: () => _voteForSong(song['id']),
+            ),
           );
         },
       ),
@@ -113,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
               tooltip: 'Upload New Song',
               child: const Icon(Icons.add),
             )
-          : null, // Hide the button for non-artists
+          : null, // Show upload button only for artists
     );
   }
 }
