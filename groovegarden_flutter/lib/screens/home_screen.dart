@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:groovegarden_flutter/screens/login_screen.dart';
+import 'package:groovegarden_flutter/screens/song_upload_screen.dart';
+import 'package:groovegarden_flutter/utils/secure_storage.dart';
 import '../services/websocket_service.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
@@ -7,7 +10,7 @@ import 'dart:convert';
 class HomeScreen extends StatefulWidget {
   final String jwtToken; // Pass JWT token to the screen
 
-  const HomeScreen({required this.jwtToken});
+  const HomeScreen({super.key, required this.jwtToken});
 
   @override
   _HomeScreenState createState() => _HomeScreenState();
@@ -25,9 +28,10 @@ class _HomeScreenState extends State<HomeScreen> {
     // Decode the JWT and extract the user's role
     final decodedJWT = AuthService.decodeJWT(widget.jwtToken);
     userRole = decodedJWT['role'];
+    print('Decoded JWT: $decodedJWT');
 
     // Fetch songs from the backend
-    ApiService.fetchSongs().then((fetchedSongs) {
+    ApiService.fetchSongs(widget.jwtToken).then((fetchedSongs) {
       setState(() {
         _songs = fetchedSongs.cast<Map<String, dynamic>>();
       });
@@ -61,15 +65,37 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _uploadNewSong() {
-    // Implement song upload functionality
-    print('Uploading a new song...');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SongUploadScreen(jwtToken: widget.jwtToken),
+      ),
+    );
+  }
+
+  Future<void> _logout() async {
+    await SecureStorage.deleteToken();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => LoginScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    print('User role: $userRole');
+    print('Songs: $_songs');
+    print('Token: ${widget.jwtToken}');
     return Scaffold(
       appBar: AppBar(
-        title: Text('GrooveGarden'),
+        title: const Text('GrooveGarden'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout),
+            onPressed: _logout,
+            tooltip: 'Logout',
+          ),
+        ],
       ),
       body: ListView.builder(
         itemCount: _songs.length,
@@ -84,8 +110,8 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: userRole == 'artist'
           ? FloatingActionButton(
               onPressed: _uploadNewSong,
-              child: Icon(Icons.add),
               tooltip: 'Upload New Song',
+              child: const Icon(Icons.add),
             )
           : null, // Hide the button for non-artists
     );
