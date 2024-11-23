@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
 
+	"groovegarden/controllers"
 	"groovegarden/database"
 	"groovegarden/oauth"
 	"groovegarden/routes"
@@ -16,6 +17,7 @@ import (
 )
 
 func main() {
+
 	// Initialize the database
 	database.InitDB()
 	fmt.Println("Database initialized")
@@ -46,8 +48,8 @@ func main() {
 	oauth.InitGoogleOAuth(clientID, clientSecret, redirectURL)
 
 	// OAuth routes
-	router.Get("/oauth/login", oauth.GoogleLogin)
-	router.Get("/oauth/callback", oauth.GoogleCallback)
+	router.Get("/oauth/login", controllers.GoogleLogin)
+	router.Get("/oauth/callback", controllers.GoogleCallback)
 
 	// Start the server
 	port := os.Getenv("SERVER_PORT")
