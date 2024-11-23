@@ -11,6 +11,9 @@ import (
 )
 
 func RegisterRoutes(router *chi.Mux) {
+	router.Get("/google/login", controllers.GoogleLogin)
+	router.Get("/google/callback", controllers.GoogleCallback)
+
 	router.Get("/songs", controllers.GetSongs)
 
 	// Protected route with JWTAuthMiddleware
