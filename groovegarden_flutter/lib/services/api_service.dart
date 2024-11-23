@@ -19,16 +19,16 @@ class ApiService {
   }
 
   // Vote for a song
-  static Future<void> voteForSong(int songId) async {
+  static Future<void> voteForSong(int songId, String jwtToken) async {
     final response = await http.post(
       Uri.parse('$baseUrl/vote/$songId'),
       headers: {
-        'Authorization': 'Bearer $bearer', // Replace with valid token
+        'Authorization': 'Bearer $jwtToken', // Use the provided JWT token
       },
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to vote for song');
+      throw Exception('Failed to vote for song: ${response.body}');
     }
   }
 
