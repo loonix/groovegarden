@@ -3,7 +3,9 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -15,7 +17,7 @@ import (
 
 // Get all songs
 func GetSongs(w http.ResponseWriter, r *http.Request) {
-	rows, err := database.DB.Query("SELECT id, title, url, votes FROM songs")
+	rows, err := database.DB.Query("SELECT id, title, file_path, votes FROM songs")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -25,7 +27,7 @@ func GetSongs(w http.ResponseWriter, r *http.Request) {
 	var songs []models.Song
 	for rows.Next() {
 		var song models.Song
-		if err := rows.Scan(&song.ID, &song.Title, &song.URL, &song.Votes); err != nil {
+		if err := rows.Scan(&song.ID, &song.Title, &song.FilePath, &song.Votes); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -34,7 +36,7 @@ func GetSongs(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, songs)
 }
 
-
+// Add a song (legacy endpoint for direct metadata addition)
 func AddSong(w http.ResponseWriter, r *http.Request) {
 	var song models.Song
 	fmt.Println("Received /add request")
@@ -47,7 +49,7 @@ func AddSong(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("Decoded Song: %+v\n", song)
 
-	_, err := database.DB.Exec("INSERT INTO songs (title, url, votes) VALUES ($1, $2, 0)", song.Title, song.URL)
+	_, err := database.DB.Exec("INSERT INTO songs (title, file_path, votes) VALUES ($1, $2, 0)", song.Title, song.FilePath)
 	if err != nil {
 		fmt.Printf("Error inserting into DB: %v\n", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -58,9 +60,6 @@ func AddSong(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, map[string]string{"message": "Song added"})
 }
 
-
-
-// Vote for a song and notify clients
 // Vote for a song and notify clients
 func VoteForSong(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
@@ -74,7 +73,7 @@ func VoteForSong(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch the updated song details
 	var song models.Song
-	err = database.DB.QueryRow("SELECT id, title, url, votes FROM songs WHERE id = $1", id).Scan(&song.ID, &song.Title, &song.URL, &song.Votes)
+	err = database.DB.QueryRow("SELECT id, title, file_path, votes FROM songs WHERE id = $1", id).Scan(&song.ID, &song.Title, &song.FilePath, &song.Votes)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -86,3 +85,79 @@ func VoteForSong(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, map[string]string{"message": "Vote counted"})
 }
 
+// Upload a song file
+func UploadSong(w http.ResponseWriter, r *http.Request) {
+	// Authenticate user and ensure they are an artist
+	userID := r.Context().Value("user_id").(int)
+	role := r.Context().Value("role").(string)
+	if role != "artist" {
+		http.Error(w, "Access denied: only artists can upload songs", http.StatusForbidden)
+		return
+	}
+
+	// Parse the multipart form
+	err := r.ParseMultipartForm(10 << 20) // Limit to 10 MB
+	if err != nil {
+		http.Error(w, "File too large or invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	// Get the file from the form
+	file, handler, err := r.FormFile("song")
+	if err != nil {
+		http.Error(w, "Invalid file upload", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Save the file to the uploads directory
+	uploadDir := "./uploads/"
+	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
+		err := os.MkdirAll(uploadDir, os.ModePerm)
+		if err != nil {
+			http.Error(w, "Failed to create upload directory", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	filePath := uploadDir + handler.Filename
+	dst, err := os.Create(filePath)
+	if err != nil {
+		http.Error(w, "Failed to save file", http.StatusInternalServerError)
+		return
+	}
+	defer dst.Close()
+	_, err = io.Copy(dst, file)
+	if err != nil {
+		http.Error(w, "Failed to save file", http.StatusInternalServerError)
+		return
+	}
+
+	// Save song metadata to the database
+	_, err = database.DB.Exec(
+		"INSERT INTO songs (title, file_path, votes, user_id) VALUES ($1, $2, 0, $3)",
+		handler.Filename, filePath, userID,
+	)
+	if err != nil {
+		http.Error(w, "Failed to save song metadata", http.StatusInternalServerError)
+		return
+	}
+	
+
+	render.JSON(w, r, map[string]string{"message": "Song uploaded successfully", "file_path": filePath})
+}
+func StreamSong(w http.ResponseWriter, r *http.Request) {
+    // Get the song ID from the URL parameter
+    songID := chi.URLParam(r, "id")
+
+    // Fetch the file path from the database
+    var filePath string
+    err := database.DB.QueryRow("SELECT file_path FROM songs WHERE id = $1", songID).Scan(&filePath)
+    if err != nil {
+        http.Error(w, "Song not found", http.StatusNotFound)
+        return
+    }
+
+    // Stream the file to the client
+    http.ServeFile(w, r, filePath)
+}

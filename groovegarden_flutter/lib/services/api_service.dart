@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
@@ -15,6 +17,42 @@ class ApiService {
       return jsonDecode(response.body);
     } else {
       throw Exception('Failed to load songs');
+    }
+  }
+
+  static Future<void> uploadSong(String title, String filePath, String jwtToken) async {
+    final uri = Uri.parse('$baseUrl/upload');
+    final request = http.MultipartRequest('POST', uri)
+      ..headers['Authorization'] = 'Bearer $jwtToken'
+      ..fields['title'] = title
+      ..files.add(await http.MultipartFile.fromPath('song', filePath));
+
+    final response = await request.send();
+    if (response.statusCode != 200) {
+      throw Exception('Failed to upload song: ${response.reasonPhrase}');
+    }
+  }
+
+  // Upload a song with bytes
+  static Future<void> uploadSongWithBytes(
+    String title,
+    Uint8List bytes,
+    String fileName,
+    String jwtToken,
+  ) async {
+    final uri = Uri.parse('$baseUrl/upload');
+    final request = http.MultipartRequest('POST', uri)
+      ..headers['Authorization'] = 'Bearer $jwtToken'
+      ..fields['title'] = title
+      ..files.add(http.MultipartFile.fromBytes(
+        'song',
+        bytes,
+        filename: fileName, // Use the file name from the picker
+      ));
+
+    final response = await request.send();
+    if (response.statusCode != 200) {
+      throw Exception('Failed to upload song: ${response.reasonPhrase}');
     }
   }
 

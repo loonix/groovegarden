@@ -16,6 +16,12 @@ func RegisterRoutes(router *chi.Mux) {
 
 	router.Get("/songs", controllers.GetSongs)
 
+	router.Post("/upload", func(w http.ResponseWriter, r *http.Request) {
+		middleware.RoleCheckMiddleware("artist")(http.HandlerFunc(controllers.UploadSong)).ServeHTTP(w, r)
+	})
+	router.Get("/stream/{id}", controllers.StreamSong)
+
+
 	// Protected route with JWTAuthMiddleware
 	router.Post("/vote/{id}", func(w http.ResponseWriter, r *http.Request) {
 		middleware.JWTAuthMiddleware(http.HandlerFunc(controllers.VoteForSong)).ServeHTTP(w, r)

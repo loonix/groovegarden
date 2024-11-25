@@ -1,9 +1,9 @@
 import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:groovegarden_flutter/screens/login_screen.dart';
 import 'package:groovegarden_flutter/screens/song_upload_screen.dart';
 import 'package:groovegarden_flutter/utils/secure_storage.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../services/websocket_service.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
@@ -20,8 +20,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late WebSocketService _webSocketService;
+  final AudioPlayer _audioPlayer = AudioPlayer(); // Audio player for streaming
   List<Map<String, dynamic>> _songs = [];
   String? userRole;
+  String? currentlyPlaying;
 
   @override
   void initState() {
@@ -33,15 +35,27 @@ class _HomeScreenState extends State<HomeScreen> {
     print('Decoded JWT: $decodedJWT');
 
     // Fetch songs from the backend
-    ApiService.fetchSongs(widget.jwtToken).then((fetchedSongs) {
+    _fetchSongs();
+
+    // Connect to WebSocket and handle incoming messages
+    _connectWebSocket();
+  }
+
+  Future<void> _fetchSongs() async {
+    try {
+      final fetchedSongs = await ApiService.fetchSongs(widget.jwtToken);
       setState(() {
         _songs = fetchedSongs.cast<Map<String, dynamic>>();
       });
-    }).catchError((error) {
+    } catch (error) {
       print('Error fetching songs: $error');
-    });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to fetch songs')),
+      );
+    }
+  }
 
-    // Connect to WebSocket and handle incoming messages
+  void _connectWebSocket() {
     _webSocketService = WebSocketService();
     _webSocketService.connect((message) {
       try {
@@ -67,6 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _webSocketService.disconnect();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -90,6 +105,23 @@ class _HomeScreenState extends State<HomeScreen> {
       print('Error voting for song: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to cast vote')),
+      );
+    }
+  }
+
+  Future<void> _playSong(String streamUrl, String title) async {
+    try {
+      await _audioPlayer.play(DeviceFileSource(streamUrl));
+      setState(() {
+        currentlyPlaying = title;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Playing: $title')),
+      );
+    } catch (e) {
+      print('Error playing song: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to play song')),
       );
     }
   }
@@ -118,20 +150,45 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: ListView.builder(
-        itemCount: _songs.length,
-        itemBuilder: (context, index) {
-          final song = _songs[index];
-          return ListTile(
-            title: Text(song['title']),
-            subtitle: Text('Votes: ${song['votes']}'),
-            trailing: IconButton(
-              icon: const Icon(Icons.thumb_up),
-              tooltip: 'Vote for this song',
-              onPressed: () => _voteForSong(song['id']),
+      body: Column(
+        children: [
+          if (currentlyPlaying != null)
+            Container(
+              padding: const EdgeInsets.all(8.0),
+              color: Colors.green.shade100,
+              child: Text(
+                'Currently Playing: $currentlyPlaying',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
-          );
-        },
+          Expanded(
+            child: ListView.builder(
+              itemCount: _songs.length,
+              itemBuilder: (context, index) {
+                final song = _songs[index];
+                return ListTile(
+                  title: Text(song['title']),
+                  subtitle: Text('Votes: ${song['votes']}'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.thumb_up),
+                        tooltip: 'Vote for this song',
+                        onPressed: () => _voteForSong(song['id']),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.play_arrow),
+                        tooltip: 'Play this song',
+                        onPressed: () => _playSong('http://localhost:8081/stream/${song['id']}', song['title']),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: userRole == 'artist'
           ? FloatingActionButton(
