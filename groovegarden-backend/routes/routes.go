@@ -11,39 +11,49 @@ import (
 )
 
 func RegisterRoutes(router *chi.Mux) {
-	router.Get("/google/login", controllers.GoogleLogin)
-	router.Get("/google/callback", controllers.GoogleCallback)
-
-	router.Get("/songs", controllers.GetSongs)
-
-	router.Post("/upload", func(w http.ResponseWriter, r *http.Request) {
-		middleware.RoleCheckMiddleware("artist")(http.HandlerFunc(controllers.UploadSong)).ServeHTTP(w, r)
+	// Google OAuth routes
+	router.Route("/google", func(r chi.Router) {
+		r.Get("/login", controllers.GoogleLogin)
+		r.Get("/callback", controllers.GoogleCallback)
 	})
+
+	// Song-related routes
+	router.Route("/songs", func(r chi.Router) {
+		r.Get("/", controllers.GetSongs) // Public route to fetch songs
+
+		// Routes requiring authentication
+		r.Group(func(auth chi.Router) {
+			auth.Use(middleware.JWTAuthMiddleware)
+
+			// Voting for songs
+			auth.Post("/vote/{id}", controllers.VoteForSong)
+
+			// Routes restricted to artists
+			auth.Group(func(artist chi.Router) {
+				artist.Use(middleware.RoleCheckMiddleware("artist"))
+				artist.Post("/upload", controllers.UploadSong)
+				artist.Post("/add", controllers.AddSong)
+			})
+		})
+	})
+
+	// Song streaming route (public access)
 	router.Get("/stream/{id}", controllers.StreamSong)
 
-
-	// Protected route with JWTAuthMiddleware
-	router.Post("/vote/{id}", func(w http.ResponseWriter, r *http.Request) {
-		middleware.JWTAuthMiddleware(http.HandlerFunc(controllers.VoteForSong)).ServeHTTP(w, r)
+	// User-related routes
+	router.Route("/users", func(r chi.Router) {
+		r.Post("/upsert", controllers.UpsertUser)
+		r.Get("/", controllers.GetUserByEmail)
 	})
 
-	// Route restricted to artists using RoleCheckMiddleware
-	router.Post("/add", func(w http.ResponseWriter, r *http.Request) {
-		middleware.RoleCheckMiddleware("artist")(http.HandlerFunc(controllers.AddSong)).ServeHTTP(w, r)
-	})
-	// User routes
-	router.Post("/users/upsert", controllers.UpsertUser)
-	router.Get("/users", controllers.GetUserByEmail)
-
+	// Utility routes
 	router.Get("/generate-token", func(w http.ResponseWriter, r *http.Request) {
-		// Example: Generating a token for an artist
-		token, err := utils.GenerateJWT(1, "artist") // User ID: 1, Role: "artist"
+		token, err := utils.GenerateJWT(1, "artist") // Example: Generate a token for User ID 1
 		if err != nil {
 			http.Error(w, "Failed to generate token: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-	
+
 		w.Write([]byte(token))
 	})
-	
 }
