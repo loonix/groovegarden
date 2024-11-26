@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 
@@ -88,8 +89,23 @@ func VoteForSong(w http.ResponseWriter, r *http.Request) {
 // Upload a song file
 func UploadSong(w http.ResponseWriter, r *http.Request) {
 	// Authenticate user and ensure they are an artist
-	userID := r.Context().Value("user_id").(int)
-	role := r.Context().Value("role").(string)
+	userIDValue := r.Context().Value("user_id")
+	roleValue := r.Context().Value("role")
+
+	// Validate and assert user_id
+	userID, ok := userIDValue.(int)
+	if !ok || userIDValue == nil {
+		http.Error(w, "Unauthorized: Missing or invalid user_id", http.StatusUnauthorized)
+		return
+	}
+
+	// Validate and assert role
+	role, ok := roleValue.(string)
+	if !ok || roleValue == nil {
+		http.Error(w, "Unauthorized: Missing or invalid role", http.StatusUnauthorized)
+		return
+	}
+
 	if role != "artist" {
 		http.Error(w, "Access denied: only artists can upload songs", http.StatusForbidden)
 		return
@@ -110,11 +126,25 @@ func UploadSong(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	// Validate file type based on filename extension
+	allowedExtensions := []string{".mp3", ".aac"}
+	isValidFile := false
+	for _, ext := range allowedExtensions {
+		if len(handler.Filename) > len(ext) && handler.Filename[len(handler.Filename)-len(ext):] == ext {
+			isValidFile = true
+			break
+		}
+	}
+
+	if !isValidFile {
+		http.Error(w, "Invalid file type. Only MP3 and AAC files are allowed.", http.StatusBadRequest)
+		return
+	}
+
 	// Save the file to the uploads directory
 	uploadDir := "./uploads/"
 	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
-		err := os.MkdirAll(uploadDir, os.ModePerm)
-		if err != nil {
+		if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
 			http.Error(w, "Failed to create upload directory", http.StatusInternalServerError)
 			return
 		}
@@ -127,6 +157,7 @@ func UploadSong(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer dst.Close()
+
 	_, err = io.Copy(dst, file)
 	if err != nil {
 		http.Error(w, "Failed to save file", http.StatusInternalServerError)
@@ -142,10 +173,13 @@ func UploadSong(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to save song metadata", http.StatusInternalServerError)
 		return
 	}
-	
+
+	// Log successful upload
+	log.Printf("Song uploaded successfully by user_id %d: %s", userID, handler.Filename)
 
 	render.JSON(w, r, map[string]string{"message": "Song uploaded successfully", "file_path": filePath})
 }
+
 func StreamSong(w http.ResponseWriter, r *http.Request) {
     // Get the song ID from the URL parameter
     songID := chi.URLParam(r, "id")
