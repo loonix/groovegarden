@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -34,21 +35,12 @@ class ApiService {
   }
 
   // Upload a song with bytes
-  static Future<void> uploadSongWithBytes(
-    String title,
-    Uint8List bytes,
-    String fileName,
-    String jwtToken,
-  ) async {
-    final uri = Uri.parse('$baseUrl/upload');
-    final request = http.MultipartRequest('POST', uri)
+  static Future<void> uploadSongWithBytes(String title, Uint8List bytes, String fileName, String jwtToken) async {
+    final uri = Uri.parse('$baseUrl/songs/upload'); // Corrected to match backend route
+    var request = http.MultipartRequest('POST', uri)
       ..headers['Authorization'] = 'Bearer $jwtToken'
       ..fields['title'] = title
-      ..files.add(http.MultipartFile.fromBytes(
-        'song',
-        bytes,
-        filename: fileName, // Use the file name from the picker
-      ));
+      ..files.add(http.MultipartFile.fromBytes('song', bytes, filename: fileName));
 
     final response = await request.send();
     if (response.statusCode != 200) {
