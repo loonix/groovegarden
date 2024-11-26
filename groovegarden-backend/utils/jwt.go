@@ -9,13 +9,13 @@ import (
 var jwtSecret = []byte("your_jwt_secret") // Replace with a secure secret in production
 // GenerateJWT generates a JWT for the given user ID and role
 func GenerateJWT(userID int, role string) (string, error) {
-	claims := jwt.MapClaims{
-		"user_id": userID,
-									"role":    role, // Ensure this is passed correctly
-		"exp":     time.Now().Add(time.Hour * 24).Unix(),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
+    claims := jwt.MapClaims{
+        "user_id": userID,
+        "role":    role,
+        "exp":     time.Now().Add(time.Hour * 24).Unix(),
+    }
+    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+    return token.SignedString(jwtSecret)
 }
 
 
