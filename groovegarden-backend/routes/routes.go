@@ -37,8 +37,12 @@ func RegisterRoutes(router *chi.Mux) {
 		})
 	})
 
-	// Song streaming route (public access)
-	router.Get("/stream/{id}", controllers.StreamSong)
+	// Song streaming routes
+	router.Route("/stream", func(r chi.Router) {
+		r.Get("/{id}", controllers.StreamSong)       // Stream a specific song (public access)
+		r.Post("/start", controllers.StartStream)    // Start the global stream (requires admin privileges later)
+		r.Post("/stop", controllers.StopStream)      // Stop the global stream (requires admin privileges later)
+	})
 
 	// User-related routes
 	router.Route("/users", func(r chi.Router) {
