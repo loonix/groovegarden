@@ -1,0 +1,34 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./groovegarden-backend
+      dockerfile: Dockerfile
+    env_file: 
+      - ./groovegarden-backend/.env
+    ports:
+      - "${SERVER_PORT:-8081}:${SERVER_PORT:-8081}"
+    volumes:
+      - ./groovegarden-backend/uploads:/app/uploads
+    depends_on:
+      - icecast
+
+  icecast:
+    image: sebbo2002/icecast
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./config/icecast.xml:/etc/icecast2/icecast.xml
+      - ./groovegarden-backend/uploads:/uploads # Serve the same uploads directory for streaming
+
+  flutter:
+    build:
+      context: ./groovegarden_flutter
+      dockerfile: Dockerfile
+    ports:
+      - "60387:60387"
+    volumes:
+      - ./groovegarden_flutter:/app
+    working_dir: /app
+    command: ["flutter", "run", "--web-port", "60387"]
