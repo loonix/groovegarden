@@ -14,7 +14,7 @@ services:
       - icecast
 
   icecast:
-    image: sebbo2002/icecast
+    image: pltnk/icecast2
     ports:
       - "9000:9000"
     volumes:
