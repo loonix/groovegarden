@@ -14,7 +14,7 @@ services:
       - icecast
 
   icecast:
-    image: iceserver/icecast
+    image: tlan16/icecast
     ports:
       - "9000:9000"
     volumes:
