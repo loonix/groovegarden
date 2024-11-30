@@ -1,26 +1,18 @@
-# Use the latest Go image
+# Use a Go image
 FROM golang:1.20
 
-# Set the working directory inside the container
+# Set the working directory
 WORKDIR /app
 
-# Set Go proxy (optional if behind a firewall or proxy)
-ENV GOPROXY=https://proxy.golang.org
-
-# Copy go.mod and go.sum first (if they exist)
-COPY go.mod go.sum ./
-
-# Run go mod download with verbose output
-RUN go mod download -v
-
-# Now copy the rest of the Go source code
+# Copy Go source files
 COPY . .
 
-# Build the Go binary
+# Install dependencies and build
+RUN go mod download
 RUN go build -o main .
 
-# Expose the backend port (default 8081 if not set)
+# Expose the backend port
 EXPOSE ${SERVER_PORT:-8081}
 
-# Run the backend when the container starts
+# Run the backend
 CMD ["./main"]

@@ -2,7 +2,7 @@
 FROM cirrusci/flutter:stable
 
 # Set the working directory
-WORKDIR /app
+WORKDIR /frontent-app
 
 # Copy Flutter project files
 COPY . .
