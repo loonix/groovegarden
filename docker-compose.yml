@@ -1,4 +1,3 @@
-
 services:
   backend:
     build:
@@ -9,25 +8,31 @@ services:
     ports:
       - "${SERVER_PORT:-8081}:${SERVER_PORT:-8081}"
     volumes:
-      - ./groovegarden-backend/uploads:/app/uploads
+      - backend-uploads:/app/uploads
     depends_on:
       - icecast
+    restart: unless-stopped
 
   icecast:
     image: tlan16/icecast
     ports:
-      - "9000:9000"
+      - "${ICECAST_PORT:-9000}:${ICECAST_PORT:-9000}"
     volumes:
       - ./config/icecast.xml:/etc/icecast2/icecast.xml
-      - ./groovegarden-backend/uploads:/uploads # Serve the same uploads directory for streaming
+      - backend-uploads:/uploads # Serve the same uploads directory for streaming
+    restart: unless-stopped
 
   flutter:
     build:
       context: ./groovegarden_flutter
       dockerfile: Dockerfile
     ports:
-      - "60387:60387"
+      - "${FLUTTER_PORT:-60387}:${FLUTTER_PORT:-60387}"
     volumes:
       - ./groovegarden_flutter:/app
     working_dir: /frontend-app
-    command: ["flutter", "run", "--web-port", "60387"]
+    command: ["flutter", "run", "--web-port", "${FLUTTER_PORT:-60387}"]
+    restart: unless-stopped
+
+volumes:
+  backend-uploads:
