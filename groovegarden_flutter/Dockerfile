@@ -1,4 +1,4 @@
-FROM google/flutter:3.10.5
+FROM cirrusci/flutter:stable
 
 # Set the working directory inside the container
 WORKDIR /frontend-app
