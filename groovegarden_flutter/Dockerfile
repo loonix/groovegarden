@@ -8,6 +8,10 @@ COPY . .
 
 # Create a non-root user and switch to it
 RUN adduser --disabled-password --gecos "" flutteruser
+
+# Ensure proper permissions for the Flutter SDK directory
+RUN chown -R flutteruser:flutteruser /sdks/flutter
+
 USER flutteruser
 
 # Add the Flutter SDK directory to the list of safe directories in Git
