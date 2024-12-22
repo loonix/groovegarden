@@ -1,17 +1,16 @@
-# Use a Flutter stable image
-FROM cirrusci/flutter:stable
+FROM cirrusci/flutter:3.5.0
 
-# Set the working directory
-WORKDIR /frontent-app
+# Set the working directory inside the container
+WORKDIR /frontend-app
 
-# Copy Flutter project files
+# Copy the Flutter project files
 COPY . .
 
-# Install dependencies
+# Install Flutter dependencies
 RUN flutter pub get
 
-# Expose the Flutter app port
-EXPOSE 60387
+# Expose the Flutter web port
+EXPOSE ${FLUTTER_PORT:-60387}
 
-# Serve the Flutter web app
-CMD ["flutter", "run", "--web-port", "60387", "--web-hostname", "0.0.0.0"]
+# Command to run the Flutter web server
+CMD ["flutter", "run", "--web-port", "${FLUTTER_PORT:-60387}"]
