@@ -1,10 +1,14 @@
-FROM cirrusci/flutter:3.5.0
+FROM google/flutter:3.10.5
 
 # Set the working directory inside the container
 WORKDIR /frontend-app
 
 # Copy the Flutter project files
 COPY . .
+
+# Create a non-root user and switch to it
+RUN adduser -D flutteruser
+USER flutteruser
 
 # Install Flutter dependencies
 RUN flutter pub get
