@@ -7,7 +7,7 @@ WORKDIR /frontend-app
 COPY . .
 
 # Create a non-root user and switch to it
-RUN adduser -D flutteruser
+RUN adduser --disabled-password --gecos "" flutteruser
 USER flutteruser
 
 # Install Flutter dependencies
