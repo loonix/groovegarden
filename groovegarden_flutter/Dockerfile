@@ -1,4 +1,4 @@
-FROM ghcr.io/cirruslabs/flutter:3.5.0
+FROM ghcr.io/cirruslabs/flutter:3.7.7
 
 # Set the working directory inside the container
 WORKDIR /frontend-app
