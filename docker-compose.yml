@@ -5,6 +5,11 @@ services:
       dockerfile: Dockerfile
     env_file: 
       - ./groovegarden-backend/.env
+    environment:
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - REDIRECT_URL=${REDIRECT_URL}
+      - SERVER_PORT=${SERVER_PORT}
     ports:
       - "${SERVER_PORT:-8081}:${SERVER_PORT:-8081}"
     volumes:
