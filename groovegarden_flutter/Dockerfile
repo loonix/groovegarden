@@ -10,6 +10,9 @@ COPY . .
 RUN adduser --disabled-password --gecos "" flutteruser
 USER flutteruser
 
+# Add the Flutter SDK directory to the list of safe directories in Git
+RUN git config --global --add safe.directory /sdks/flutter
+
 # Install Flutter dependencies
 RUN flutter pub get
 
