@@ -9,8 +9,8 @@ COPY . .
 # Create a non-root user and switch to it
 RUN adduser --disabled-password --gecos "" flutteruser
 
-# Ensure proper permissions for the Flutter SDK directory
-RUN chown -R flutteruser:flutteruser /sdks/flutter
+# Ensure proper permissions for the project directory and Flutter SDK directory
+RUN chown -R flutteruser:flutteruser /frontend-app /sdks/flutter
 
 USER flutteruser
 
