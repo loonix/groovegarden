@@ -1,5 +1,8 @@
 FROM ghcr.io/cirruslabs/flutter:3.24.4
 
+# Install CMake
+RUN apt-get update && apt-get install -y cmake
+
 # Set the working directory inside the container
 WORKDIR /frontend-app
 
