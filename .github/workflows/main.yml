@@ -1,6 +1,6 @@
 name: discord-webhook
 
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   notify:
@@ -11,24 +11,17 @@ jobs:
         with:
           webhook-url: 'https://discord.com/api/webhooks/1346063234968457256/hd0iQOcaZJ4Bw5JD6oivV5hJ4FL8HgYa9L07Ab3U4Jz-DRB8fmi_utJ4cN87pfJv6xDD'
           content: 'A new push or pull request has been made.'
-          # thread-id: # optional
-          # thread-name: # optional
-          # flags: # optional
           wait: true
           username: 'GitHub Actions'
-          avatar-url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+          avatar-url: 'https://example.com/custom-avatar.png'
           tts: false
-          # raw-data: # optional
-          # filename: # optional
           embed-title: 'GitHub Notification'
           embed-url: 'https://github.com/loonix/groovegarden'
           embed-description: 'A new update has been pushed to the repository.'
-          embed-timestamp: '${{ github.event.head_commit.timestamp }}'
-          embed-color: 16711680
+          embed-timestamp: "${{ github.event.head_commit.timestamp != '' && github.event.head_commit.timestamp || github.event.repository.updated_at }}"
+          embed-color: '#FF0000'
           embed-footer-text: 'GitHub Actions'
           embed-footer-icon-url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
-          # embed-image-url: # optional
-          # embed-thumbnail-url: # optional
           embed-author-name: 'GitHub'
           embed-author-url: 'https://github.com'
           embed-author-icon-url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
