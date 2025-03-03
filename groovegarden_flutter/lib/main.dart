@@ -14,13 +14,20 @@ class GrooveGardenApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Check for token in URL
-    final url = html.window.location.href;
-    final uri = Uri.parse(url);
-    final token = uri.queryParameters['token'];
-    debugger();
-    // Store the token in secure storage if present
-    if (token != null) {
-      SecureStorage.saveToken(token);
+    try {
+      final url = html.window.location.href;
+      final uri = Uri.parse(url);
+      final token = uri.queryParameters['token'];
+      log('Checking for token in URL: ${token != null ? "Token found" : "No token"}');
+
+      // Store the token in secure storage if present
+      if (token != null) {
+        SecureStorage.saveToken(token);
+        // Remove the token from the URL for security
+        html.window.history.pushState({}, '', uri.origin + uri.path);
+      }
+    } catch (e) {
+      log('Error processing URL: $e');
     }
 
     return MaterialApp(
