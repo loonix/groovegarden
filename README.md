@@ -100,6 +100,7 @@ docker-compose up --build
 Navigate to the backend folder and run:
 
 ```bash
+cd groovegarden-backend 
 go run main.go
 ```
 ### Frontend

@@ -10,15 +10,15 @@ import '../services/auth_service.dart';
 import 'dart:convert';
 
 class HomeScreen extends StatefulWidget {
-  final String jwtToken; // Pass JWT token to the screen
+  final String jwtToken;
 
   const HomeScreen({super.key, required this.jwtToken});
 
   @override
-  _HomeScreenState createState() => _HomeScreenState();
+  HomeScreenState createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   late WebSocketService _webSocketService;
   final AudioPlayer _audioPlayer = AudioPlayer(); // Audio player for streaming
   List<Map<String, dynamic>> _songs = [];
@@ -32,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Decode the JWT and extract the user's role
     final decodedJWT = AuthService.decodeJWT(widget.jwtToken);
     userRole = decodedJWT['role'];
-    print('Decoded JWT: $decodedJWT');
+    debugPrint('Decoded JWT: $decodedJWT');
 
     // Fetch songs from the backend
     _fetchSongs();
@@ -48,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _songs = fetchedSongs.cast<Map<String, dynamic>>();
       });
     } catch (error) {
-      print('Error fetching songs: $error');
+      debugPrint('Error fetching songs: $error');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to fetch songs')),
       );
@@ -73,7 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         });
       } catch (e) {
-        print('Error parsing WebSocket message: $e');
+        debugPrint('Error parsing WebSocket message: $e');
       }
     });
   }
@@ -136,9 +136,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print('User role: $userRole');
-    print('Songs: $_songs');
-    print('Token: ${widget.jwtToken}');
+    debugPrint('User role: $userRole');
+    debugPrint('Songs: $_songs');
+    debugPrint('Token: ${widget.jwtToken}');
     return Scaffold(
       appBar: AppBar(
         title: const Text('GrooveGarden'),

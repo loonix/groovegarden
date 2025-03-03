@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as status;
 
@@ -14,9 +15,9 @@ class WebSocketService {
     channel.stream.listen((message) {
       onMessage(message);
     }, onError: (error) {
-      print("WebSocket error: $error");
+      debugPrint("WebSocket error: $error");
     }, onDone: () {
-      print("WebSocket closed");
+      debugPrint("WebSocket closed");
     });
   }
 

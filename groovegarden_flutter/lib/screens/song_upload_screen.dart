@@ -1,18 +1,17 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 
 class SongUploadScreen extends StatefulWidget {
   final String jwtToken; // Pass JWT token for authorization
 
-  const SongUploadScreen({Key? key, required this.jwtToken}) : super(key: key);
+  const SongUploadScreen({super.key, required this.jwtToken});
 
   @override
-  _SongUploadScreenState createState() => _SongUploadScreenState();
+  SongUploadScreenState createState() => SongUploadScreenState();
 }
 
-class _SongUploadScreenState extends State<SongUploadScreen> {
+class SongUploadScreenState extends State<SongUploadScreen> {
   final _formKey = GlobalKey<FormState>();
   String _title = '';
   PlatformFile? _selectedFile;
