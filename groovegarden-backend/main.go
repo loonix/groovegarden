@@ -33,6 +33,10 @@ func main() {
 	router := chi.NewRouter()
 	router.Use(corsMiddleware)
 
+	// Print out important configuration values for debugging
+	fmt.Println("OAuth Redirect URL:", os.Getenv("REDIRECT_URL"))
+	fmt.Println("Frontend Origin is expected to be:", "http://localhost:54321")
+
 	// Register routes
 	routes.RegisterRoutes(router)
 
@@ -68,9 +72,16 @@ func main() {
 // CORS Middleware
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:60387")
+		// Get the origin from the request or use a default
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			origin = "http://localhost:54321" // Default frontend origin
+		}
+
+		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)

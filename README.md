@@ -91,7 +91,7 @@ docker-compose up --build
 ```
 
 ### Accessing the Application
-- Frontend: http://localhost:60387
+- Frontend: http://localhost:55555
 - Backend: http://localhost:8081
 - Icecast Stream: http://localhost:9000/stream
 

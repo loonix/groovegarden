@@ -24,7 +24,7 @@ RUN git config --global --add safe.directory /sdks/flutter
 RUN flutter pub get
 
 # Expose the Flutter web port
-EXPOSE ${FLUTTER_PORT:-60387}
+EXPOSE ${FLUTTER_PORT:-55555}
 
 # Command to run the Flutter web server
-CMD ["flutter", "run", "--web-port", "${FLUTTER_PORT:-60387}"]
+CMD ["flutter", "run", "--web-port", "${FLUTTER_PORT:-55555}"]

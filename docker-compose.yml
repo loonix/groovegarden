@@ -32,11 +32,11 @@ services:
       context: ./groovegarden_flutter
       dockerfile: Dockerfile
     ports:
-      - "${FLUTTER_PORT:-60387}:${FLUTTER_PORT:-60387}"
+      - "${FLUTTER_PORT:-55555}:${FLUTTER_PORT:-55555}"
     volumes:
       - ./groovegarden_flutter:/app
     working_dir: /frontend-app
-    command: ["flutter", "run", "--web-port", "${FLUTTER_PORT:-60387}"]
+    command: ["flutter", "run", "--web-port", "${FLUTTER_PORT:-55555}"]
     restart: unless-stopped
 
 volumes:
