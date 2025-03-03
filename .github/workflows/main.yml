@@ -6,11 +6,29 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     steps:
-      - name: Send Discord Notification
-        uses: johnnyhuy/actions-discord-git-webhook@v1.0.0
+      - name: Discord Webhook Action
+        uses: tsickert/discord-webhook@v7.0.0
         with:
-          webhook_url: 'https://discord.com/api/webhooks/1346063234968457256/hd0iQOcaZJ4Bw5JD6oivV5hJ4FL8HgYa9L07Ab3U4Jz-DRB8fmi_utJ4cN87pfJv6xDD'
-          # repo_name: # optional
-          # censor_username: # optional
-          # hide_links: # optional
-          # color: # optional, default is 7dbbe6
+          webhook-url: 'https://discord.com/api/webhooks/1346063234968457256/hd0iQOcaZJ4Bw5JD6oivV5hJ4FL8HgYa9L07Ab3U4Jz-DRB8fmi_utJ4cN87pfJv6xDD'
+          content: 'A new push or pull request has been made.'
+          # thread-id: # optional
+          # thread-name: # optional
+          # flags: # optional
+          wait: true
+          username: 'GitHub Actions'
+          avatar-url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+          tts: false
+          # raw-data: # optional
+          # filename: # optional
+          embed-title: 'GitHub Notification'
+          embed-url: 'https://github.com/YOUR_REPO'
+          embed-description: 'A new update has been pushed to the repository.'
+          embed-timestamp: '${{ github.event.head_commit.timestamp }}'
+          embed-color: 16711680
+          embed-footer-text: 'GitHub Actions'
+          embed-footer-icon-url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+          # embed-image-url: # optional
+          # embed-thumbnail-url: # optional
+          embed-author-name: 'GitHub'
+          embed-author-url: 'https://github.com'
+          embed-author-icon-url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
