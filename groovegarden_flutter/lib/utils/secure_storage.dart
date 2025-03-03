@@ -1,23 +1,32 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:html' as html;
 
 class SecureStorage {
-  static const _jwtKey = 'jwt_token';
+  static const String _tokenKey = 'auth_token';
 
-  // Save token
+  // Save token to storage
   static Future<void> saveToken(String token) async {
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(_jwtKey, token);
+    html.window.localStorage[_tokenKey] = token;
+
+    // Signal token change to other tabs
+    html.window.localStorage['oauth_token_received'] = 'true';
+
+    return;
   }
 
-  // Get token
+  // Get token from storage
   static Future<String?> getToken() async {
-    final preferences = await SharedPreferences.getInstance();
-    return preferences.getString(_jwtKey);
+    final token = html.window.localStorage[_tokenKey];
+    return token;
   }
 
-  // Delete token
+  // Clear token from storage
+  static Future<void> clearToken() async {
+    html.window.localStorage.remove(_tokenKey);
+    return;
+  }
+
+  // Alias for clearToken for backward compatibility
   static Future<void> deleteToken() async {
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.remove(_jwtKey);
+    return clearToken();
   }
 }

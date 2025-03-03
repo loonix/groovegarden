@@ -127,7 +127,7 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _logout() async {
-    await SecureStorage.deleteToken();
+    await SecureStorage.clearToken();
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => const LoginScreen()),

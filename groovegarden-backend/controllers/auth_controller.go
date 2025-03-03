@@ -121,6 +121,12 @@ func GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	// Redirect back to the frontend with the token, using the original origin
 	redirectURL := fmt.Sprintf("%s?token=%s", origin, jwtToken)
 	fmt.Println("Redirecting to:", redirectURL)
+
+	// Set Cache-Control headers to prevent caching
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, post-check=0, pre-check=0")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
 
