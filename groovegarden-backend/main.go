@@ -23,8 +23,10 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
-	// Initialize the database
-	database.InitDB()
+	// Initialize database connection
+	if err := database.Connect(); err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
 	fmt.Println("Database initialized")
 
 	// Set up the router

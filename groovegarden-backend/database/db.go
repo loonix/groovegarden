@@ -4,40 +4,39 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 
 	_ "github.com/lib/pq"
 )
 
+// DB is the global database connection
 var DB *sql.DB
 
-func InitDB() {
-	connStr := "host=localhost port=5432 user=grooveuser password=groovepass dbname=groovegarden sslmode=disable"
+// Connect establishes a connection to the database
+func Connect() error {
+	connStr := os.Getenv("DATABASE_URL")
+	if connStr == "" {
+		// Fallback to default connection string using credentials from README
+		connStr = "postgres://grooveuser:groovepass@localhost:5432/groovegarden?sslmode=disable"
+	}
+
 	var err error
 	DB, err = sql.Open("postgres", connStr)
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		return fmt.Errorf("failed to open database connection: %w", err)
 	}
 
 	err = DB.Ping()
 	if err != nil {
-		log.Fatal("Failed to ping database:", err)
+		return fmt.Errorf("failed to ping database: %w. Please check if PostgreSQL is running and credentials are correct (see README.md for setup instructions)", err)
 	}
 
-	fmt.Println("Database connected!")
-
-	// Create the 'songs' table if it does not exist
-	createTableQuery := `
-	CREATE TABLE IF NOT EXISTS songs (
-		id SERIAL PRIMARY KEY,
-		title VARCHAR(255) NOT NULL,
-		url VARCHAR(255) NOT NULL,
-		votes INTEGER DEFAULT 0
-	);
-	`
-	_, err = DB.Exec(createTableQuery)
-	if err != nil {
-		log.Fatal("Failed to create table:", err)
+	log.Println("Database connected!")
+	
+	// Initialize database schema
+	if err := InitializeDatabase(); err != nil {
+		return err
 	}
-
-	fmt.Println("Table 'songs' ensured to exist")
+	
+	return nil
 }
