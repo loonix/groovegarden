@@ -8,8 +8,9 @@ services:
     environment:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - REDIRECT_URL=${REDIRECT_URL}
-      - SERVER_PORT=${SERVER_PORT}
+      - REDIRECT_URL=http://localhost:${SERVER_PORT:-8081}/google/callback
+      - SERVER_PORT=${SERVER_PORT:-8081}
+      - FRONTEND_URL=http://localhost:${FLUTTER_PORT:-54321}
     ports:
       - "${SERVER_PORT:-8081}:${SERVER_PORT:-8081}"
     volumes:
@@ -32,11 +33,14 @@ services:
       context: ./groovegarden_flutter
       dockerfile: Dockerfile
     ports:
-      - "${FLUTTER_PORT:-55555}:${FLUTTER_PORT:-55555}"
+      - "${FLUTTER_PORT:-54321}:${FLUTTER_PORT:-54321}"
+    environment:
+      - FLUTTER_PORT=${FLUTTER_PORT:-54321}
+      - BACKEND_URL=http://backend:${SERVER_PORT:-8081}
     volumes:
       - ./groovegarden_flutter:/app
-    working_dir: /frontend-app
-    command: ["flutter", "run", "--web-port", "${FLUTTER_PORT:-55555}"]
+    command: >
+      sh -c "flutter run -d web-server --web-port=${FLUTTER_PORT:-54321} --web-hostname=0.0.0.0"
     restart: unless-stopped
 
 volumes:

@@ -4,7 +4,7 @@ FROM ghcr.io/cirruslabs/flutter:3.24.4
 RUN apt-get update && apt-get install -y cmake
 
 # Set the working directory inside the container
-WORKDIR /frontend-app
+WORKDIR /app
 
 # Copy the Flutter project files
 COPY . .
@@ -13,7 +13,7 @@ COPY . .
 RUN adduser --disabled-password --gecos "" flutteruser
 
 # Ensure proper permissions for the project directory and Flutter SDK directory
-RUN chown -R flutteruser:flutteruser /frontend-app /sdks/flutter
+RUN chown -R flutteruser:flutteruser /app /sdks/flutter
 
 USER flutteruser
 
@@ -23,8 +23,11 @@ RUN git config --global --add safe.directory /sdks/flutter
 # Install Flutter dependencies
 RUN flutter pub get
 
-# Expose the Flutter web port
-EXPOSE ${FLUTTER_PORT:-55555}
+# Build for web
+RUN flutter build web
 
-# Command to run the Flutter web server
-CMD ["flutter", "run", "--web-port", "${FLUTTER_PORT:-55555}"]
+# Expose the Flutter web port
+EXPOSE ${FLUTTER_PORT:-54321}
+
+# Run the server using the built web assets
+CMD ["sh", "-c", "cd build/web && flutter run -d web-server --web-port=${FLUTTER_PORT:-54321} --web-hostname=0.0.0.0"]
