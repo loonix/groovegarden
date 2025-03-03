@@ -1,20 +1,16 @@
-            - name: discord-webhook
-  # You may pin to the exact commit or the version.
-  # uses: johnnyhuy/actions-discord-git-webhook@ba54912b26910da886c9095317d6da6182a87224
-  uses: johnnyhuy/actions-discord-git-webhook@v1.0.0
-  with:
-    # Discord webhook URL
-    webhook_url: 'https://discord.com/api/webhooks/1346063234968457256/hd0iQOcaZJ4Bw5JD6oivV5hJ4FL8HgYa9L07Ab3U4Jz-DRB8fmi_utJ4cN87pfJv6xDD'
-    # Discord Webhook ID (ignored if `webhook_url` is set)
-    id: # optional
-    # Discord Webhook token (ignored if `webhook_url` is set)
-    token: # optional
-    # Overwrite repository name with a custom one
-    repo_name: # optional
-    # Hide the full GitHub username
-    censor_username: # optional
-    # Toggle whether to show repo links on the webhook event
-    hide_links: # optional
-    # Color of the Discord embed
-    color: # optional, default is 7dbbe6
-          
+name: discord-webhook
+
+on: [push, pull_request]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Discord Notification
+        uses: johnnyhuy/actions-discord-git-webhook@v1.0.0
+        with:
+          webhook_url: 'https://discord.com/api/webhooks/1346063234968457256/hd0iQOcaZJ4Bw5JD6oivV5hJ4FL8HgYa9L07Ab3U4Jz-DRB8fmi_utJ4cN87pfJv6xDD'
+          # repo_name: # optional
+          # censor_username: # optional
+          # hide_links: # optional
+          # color: # optional, default is 7dbbe6
