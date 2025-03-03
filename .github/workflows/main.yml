@@ -21,7 +21,7 @@ jobs:
           # raw-data: # optional
           # filename: # optional
           embed-title: 'GitHub Notification'
-          embed-url: 'https://github.com/YOUR_REPO'
+          embed-url: 'https://github.com/loonix/groovegarden'
           embed-description: 'A new update has been pushed to the repository.'
           embed-timestamp: '${{ github.event.head_commit.timestamp }}'
           embed-color: 16711680
