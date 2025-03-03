@@ -19,7 +19,7 @@ jobs:
           embed-url: 'https://github.com/loonix/groovegarden'
           embed-description: 'A new update has been pushed to the repository.'
           embed-timestamp: "${{ github.event.head_commit.timestamp != '' && github.event.head_commit.timestamp || github.event.repository.updated_at }}"
-          embed-color: '#FF0000'
+          embed-color: 16711680  # This is #FF0000 in decimal (hex to decimal conversion)
           embed-footer-text: 'GitHub Actions'
           embed-footer-icon-url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
           embed-author-name: 'GitHub'
