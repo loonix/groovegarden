@@ -1,4 +1,3 @@
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:groovegarden_flutter/screens/login_screen.dart';
 import 'package:groovegarden_flutter/screens/song_upload_screen.dart';
@@ -44,11 +43,13 @@ class HomeScreenState extends State<HomeScreen> {
   Future<void> _fetchSongs() async {
     try {
       final fetchedSongs = await ApiService.fetchSongs(widget.jwtToken);
+      if (!mounted) return;
       setState(() {
         _songs = fetchedSongs.cast<Map<String, dynamic>>();
       });
     } catch (error) {
       debugPrint('Error fetching songs: $error');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to fetch songs')),
       );
@@ -95,14 +96,19 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _voteForSong(int songId) async {
-    debugger();
     try {
       await ApiService.voteForSong(songId, widget.jwtToken);
+      // Check if the widget is still mounted before using BuildContext
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Vote cast successfully!')),
       );
     } catch (e) {
-      print('Error voting for song: $e');
+      // Replace print with debugPrint for better debugging
+      debugPrint('Error voting for song: $e');
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to cast vote')),
       );
@@ -112,14 +118,20 @@ class HomeScreenState extends State<HomeScreen> {
   Future<void> _playSong(String streamUrl, String title) async {
     try {
       await _audioPlayer.play(DeviceFileSource(streamUrl));
+
+      if (!mounted) return;
       setState(() {
         currentlyPlaying = title;
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Playing: $title')),
       );
     } catch (e) {
-      print('Error playing song: $e');
+      // Replace print with debugPrint
+      debugPrint('Error playing song: $e');
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to play song')),
       );
@@ -162,31 +174,33 @@ class HomeScreenState extends State<HomeScreen> {
               ),
             ),
           Expanded(
-            child: ListView.builder(
-              itemCount: _songs.length,
-              itemBuilder: (context, index) {
-                final song = _songs[index];
-                return ListTile(
-                  title: Text(song['title']),
-                  subtitle: Text('Votes: ${song['votes']}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.thumb_up),
-                        tooltip: 'Vote for this song',
-                        onPressed: () => _voteForSong(song['id']),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.play_arrow),
-                        tooltip: 'Play this song',
-                        onPressed: () => _playSong('http://localhost:8081/stream/${song['id']}', song['title']),
-                      ),
-                    ],
+            child: _songs.isEmpty
+                ? const Center(child: Text("No songs available"))
+                : ListView.builder(
+                    itemCount: _songs.length,
+                    itemBuilder: (context, index) {
+                      final song = _songs[index];
+                      return ListTile(
+                        title: Text(song['title'] ?? 'Unknown Title'),
+                        subtitle: Text('Artist: ${song['artist'] ?? 'Unknown'} • Votes: ${song['votes'] ?? 0}'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.thumb_up),
+                              tooltip: 'Vote for this song',
+                              onPressed: () => _voteForSong(song['id']),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.play_arrow),
+                              tooltip: 'Play this song',
+                              onPressed: () => _playSong('http://localhost:8081/stream/${song['id']}', song['title'] ?? 'Unknown'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
         ],
       ),

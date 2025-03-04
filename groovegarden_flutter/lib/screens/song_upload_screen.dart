@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
 import '../services/api_service.dart';
 
 class SongUploadScreen extends StatefulWidget {
@@ -13,9 +14,12 @@ class SongUploadScreen extends StatefulWidget {
 
 class SongUploadScreenState extends State<SongUploadScreen> {
   final _formKey = GlobalKey<FormState>();
-  String _title = '';
-  PlatformFile? _selectedFile;
-  bool _isLoading = false;
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _artistController = TextEditingController();
+  final TextEditingController _durationController = TextEditingController();
+  String? _selectedFilename;
+  Uint8List? _selectedFileBytes;
+  bool _isUploading = false;
 
   Future<void> _pickFile() async {
     try {
@@ -29,7 +33,8 @@ class SongUploadScreenState extends State<SongUploadScreen> {
         // Validate file extension
         if (fileName.endsWith('.mp3') || fileName.endsWith('.aac')) {
           setState(() {
-            _selectedFile = result.files.single; // Store PlatformFile
+            _selectedFilename = result.files.single.name; // Store filename
+            _selectedFileBytes = result.files.single.bytes; // Store file bytes
           });
         } else {
           // Invalid file type
@@ -51,39 +56,71 @@ class SongUploadScreenState extends State<SongUploadScreen> {
   }
 
   Future<void> _uploadSong() async {
-    if (!_formKey.currentState!.validate() || _selectedFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill out all fields and select a file')),
-      );
+    if (_selectedFileBytes == null || _selectedFilename == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a file to upload')),
+        );
+      }
+      return;
+    }
+
+    final title = _titleController.text;
+    final artist = _artistController.text;
+    int? duration;
+
+    try {
+      duration = int.parse(_durationController.text);
+    } catch (e) {
+      debugPrint('Invalid duration: $_durationController.text');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a valid duration in seconds')),
+        );
+      }
       return;
     }
 
     setState(() {
-      _isLoading = true;
+      _isUploading = true;
     });
 
     try {
-      // Use bytes directly for the upload
-      await ApiService.uploadSongWithBytes(
-        _title,
-        _selectedFile!.bytes!, // Use bytes for the upload
-        _selectedFile!.name, // Include the filename
-        widget.jwtToken,
+      // Fix function call with correct parameters
+      final success = await ApiService.uploadSongWithBytes(
+        title, // String title
+        artist, // String artist
+        duration, // int duration
+        _selectedFilename!, // String filename
+        _selectedFileBytes!, // Uint8List fileBytes
+        widget.jwtToken, // String token
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Song uploaded successfully!')),
-      );
-      Navigator.pop(context); // Go back to the previous screen
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Song uploaded successfully!')),
+          );
+          Navigator.pop(context); // Go back to the previous screen
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to upload song')),
+          );
+        }
+      }
     } catch (e) {
-      print('Error uploading song: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to upload song: $e')),
-      );
+      debugPrint('Error during upload: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('An error occurred during upload')),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
     }
   }
 
@@ -100,33 +137,45 @@ class SongUploadScreenState extends State<SongUploadScreen> {
           child: Column(
             children: [
               TextFormField(
+                controller: _titleController,
                 decoration: const InputDecoration(labelText: 'Song Title'),
                 validator: (value) => value == null || value.isEmpty ? 'Enter a song title' : null,
-                onSaved: (value) {
-                  _title = value!;
-                },
+              ),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _artistController,
+                decoration: const InputDecoration(labelText: 'Artist'),
+                validator: (value) => value == null || value.isEmpty ? 'Enter the artist name' : null,
+              ),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _durationController,
+                decoration: const InputDecoration(labelText: 'Duration (seconds)'),
+                validator: (value) => value == null || value.isEmpty ? 'Enter the duration in seconds' : null,
+                keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _pickFile,
                 child: const Text('Select Song File'),
               ),
-              if (_selectedFile != null)
+              if (_selectedFilename != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 10.0),
                   child: Text(
-                    'Selected File: ${_selectedFile!.name}', // Use name instead of path
+                    'Selected File: $_selectedFilename', // Use name instead of path
                     style: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
                   ),
                 ),
               const SizedBox(height: 20),
-              if (_isLoading)
+              if (_isUploading)
                 const CircularProgressIndicator()
               else
                 ElevatedButton(
                   onPressed: () {
-                    _formKey.currentState!.save();
-                    _uploadSong();
+                    if (_formKey.currentState!.validate()) {
+                      _uploadSong();
+                    }
                   },
                   child: const Text('Upload Song'),
                 ),

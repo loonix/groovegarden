@@ -8,15 +8,19 @@ import 'dart:html' as html;
 import 'dart:async';
 
 void main() {
-  runApp(GrooveGardenApp());
+  runApp(const GrooveGardenApp());
 }
 
 class GrooveGardenApp extends StatefulWidget {
+  // Add a key parameter to the constructor
+  const GrooveGardenApp({super.key});
+
   @override
-  _GrooveGardenAppState createState() => _GrooveGardenAppState();
+  // Use public class for the state
+  State<GrooveGardenApp> createState() => GrooveGardenAppState();
 }
 
-class _GrooveGardenAppState extends State<GrooveGardenApp> {
+class GrooveGardenAppState extends State<GrooveGardenApp> {
   // Flag to force refresh of token state
   bool _forceRefresh = false;
   late StreamSubscription<html.Event> _storageListener;
@@ -98,10 +102,10 @@ class _GrooveGardenAppState extends State<GrooveGardenApp> {
             : SecureStorage.getToken(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator());
           }
           final savedToken = snapshot.data;
-          return savedToken != null ? HomeScreen(jwtToken: savedToken) : LoginScreen();
+          return savedToken != null ? HomeScreen(jwtToken: savedToken) : const LoginScreen();
         },
       ),
     );

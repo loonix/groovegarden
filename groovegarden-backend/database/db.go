@@ -14,11 +14,33 @@ var DB *sql.DB
 
 // Connect establishes a connection to the database
 func Connect() error {
-	connStr := os.Getenv("DATABASE_URL")
-	if connStr == "" {
-		// Fallback to default connection string using credentials from README
-		connStr = "postgres://grooveuser:groovepass@localhost:5432/groovegarden?sslmode=disable"
+	host := os.Getenv("POSTGRES_HOST")
+	if host == "" {
+		host = "localhost"
 	}
+
+	port := os.Getenv("POSTGRES_PORT")
+	if port == "" {
+		port = "5432"
+	}
+
+	user := os.Getenv("POSTGRES_USER")
+	if user == "" {
+		user = "grooveuser"
+	}
+
+	password := os.Getenv("POSTGRES_PASSWORD")
+	if password == "" {
+		password = "groovepass"
+	}
+
+	dbname := os.Getenv("POSTGRES_DB")
+	if dbname == "" {
+		dbname = "groovegarden"
+	}
+
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		host, port, user, password, dbname)
 
 	var err error
 	DB, err = sql.Open("postgres", connStr)
@@ -39,4 +61,14 @@ func Connect() error {
 	}
 	
 	return nil
+}
+
+// GetDB returns the database connection
+func GetDB() (*sql.DB, error) {
+	if DB == nil {
+		if err := Connect(); err != nil {
+			return nil, err
+		}
+	}
+	return DB, nil
 }

@@ -1,6 +1,6 @@
 # GrooveGarden
 
-GrooveGarden is a radio-style music streaming platform where users can upload songs, vote for the next track to play, and enjoy synchronized music streaming. The application includes a backend server, a frontend Flutter app, and an Icecast streaming server.
+GrooveGarden is a radio-style music streaming platform where users can upload songs, vote for the next track to play, and enjoy synchronized music streaming. The application includes a Go backend server, a Flutter web frontend, and an Icecast streaming server.
 
 ---
 
@@ -16,11 +16,13 @@ GrooveGarden is a radio-style music streaming platform where users can upload so
 
 ## Tech Stack
 
-- **Backend**: Go (`chi`, `godotenv`, `lib/pq`, `jwt`)
-- **Frontend**: Flutter
+- **Backend**: Go with Chi router
+- **Frontend**: Flutter Web
+- **Authentication**: Google OAuth 2.0 + JWT
 - **Streaming**: Icecast
 - **Database**: PostgreSQL
-- **Containerization**: Docker
+- **Real-time Communication**: WebSockets
+- **Containerization**: Docker & Docker Compose
 
 ---
 
@@ -62,20 +64,24 @@ project-root/
 
 ### Prerequisites
 
-- [Docker](https://www.docker.com/)
-- [Flutter](https://flutter.dev/)
-- PostgreSQL database
+- [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/)
+- [Go](https://golang.org/) (1.20 or later)
+- [Flutter](https://flutter.dev/) (3.24 or later)
+- [PostgreSQL](https://www.postgresql.org/) database
 
-### Environment Variables
+### Environment Setup
 
-Create `.env` files in the following locations:
+1. Set up a Google OAuth application in the [Google Cloud Console](https://console.cloud.google.com/)
+2. Create `.env` files as described below
 
 #### `groovegarden-backend/.env`
+
 ```env
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 REDIRECT_URL=http://localhost:8081/google/callback
 SERVER_PORT=8081
+FRONTEND_URL=http://localhost:54321
 POSTGRES_HOST=postgres
 POSTGRES_PORT=5432
 POSTGRES_USER=your_db_user
@@ -83,44 +89,154 @@ POSTGRES_PASSWORD=your_db_password
 POSTGRES_DB=groovegarden
 ```
 
-## Run with Docker
-### Build and Start Containers
-Run the following command to start the entire stack:
+#### Project Root `.env` (for Docker Compose)
+
+```env
+SERVER_PORT=8081
+FLUTTER_PORT=54321
+ICECAST_PORT=9000
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+```
+
+---
+
+## Development and Testing
+
+### Utility Scripts
+
+The project includes several utility scripts to make development and testing easier:
+
+#### Running the Flutter Web App
+
+```bash
+cd groovegarden_flutter
+./run_web.sh
+```
+
+This script checks if the specified port (54321) is in use, clears it if necessary, and then starts the Flutter web app.
+
+#### Setting Up Test Data
+
+You can quickly populate your database with test songs using the `setup_test_data.sh` script:
+
+```bash
+./setup_test_data.sh <jwt_token>
+```
+
+Replace `<jwt_token>` with a valid JWT token from your application. This script:
+1. Creates test song files in the uploads directory
+2. Inserts song metadata directly into the database
+3. Sets initial vote counts for testing
+
+#### Updating User Role
+
+To change a user's role (e.g., from listener to artist):
+
+```bash
+./update_user_role.sh <email> <role>
+```
+
+Replace `<email>` with the user's email and `<role>` with either "artist" or "listener". For example:
+
+```bash
+./update_user_role.sh user@example.com artist
+```
+
+**Note**: After changing a user's role, you need to log out and log back in for the changes to take effect.
+
+---
+
+## Deployment
+
+### Docker Deployment
+
+Build and start all services with Docker Compose:
+
 ```bash
 docker-compose up --build
 ```
 
-### Accessing the Application
-- Frontend: http://localhost:55555
-- Backend: http://localhost:8081
-- Icecast Stream: http://localhost:9000/stream
+This will start:
+- Backend Go server
+- Flutter web frontend
+- Icecast streaming server
 
-## Development
-### Backend
-Navigate to the backend folder and run:
+### Manual Deployment
 
-```bash
-cd groovegarden-backend 
-go run main.go
-```
-### Frontend
-Ensure you have Flutter installed. Navigate to the `groovegarden_flutter` folder and run:
+#### Backend
 
 ```bash
-flutter run
+cd groovegarden-backend
+go mod download
+go build -o main .
+./main
 ```
 
-### Database
-Run PostgreSQL locally or connect to the containerized database. Use the `.sql` scripts to initialize the database schema.
+#### Frontend
+
+```bash
+cd groovegarden_flutter
+flutter pub get
+./run_web.sh
+```
+
+---
+
+## Accessing the Application
+
+- **Frontend**: http://localhost:54321
+- **Backend API**: http://localhost:8081
+- **Icecast Stream**: http://localhost:9000/stream
+
+---
+
+## Development Notes
+
+- The application uses WebSockets for real-time vote count updates
+- Cross-tab communication is implemented using localStorage events
+- CORS is configured to allow requests from the Flutter app origin
+- JWT authentication middleware protects sensitive endpoints
+- Role-based access controls restrict artist-only features
+
+---
+
+## Troubleshooting
+
+### No Songs Appearing in the UI
+
+If you don't see any songs in the app:
+1. Check if the database is properly initialized with `InitializeDatabase()`
+2. Run the `setup_test_data.sh` script to add test data
+3. Check the browser console for any API errors
+4. Verify that your JWT token is valid and has the appropriate permissions
+
+### Permission Issues with Song Upload
+
+If you're unable to upload songs as an artist:
+1. Verify your account has the "artist" role using `update_user_role.sh`
+2. Make sure you're using a fresh JWT token after role changes
+3. Check server logs for any permission or validation errors
+
+### Database Connectivity Issues
+
+For database connection problems:
+1. Make sure PostgreSQL is running and accessible
+2. Check environment variables are correctly set for database connection
+3. Verify the database schema is created with all required tables and columns
+
+---
 
 ## Contributing
-1. Fork the repository.
-2. Create a feature branch: git checkout -b feature-name.
-3. Commit changes: git commit -m 'Add new feature'.
-4. Push to the branch: git push origin feature-name.
-5. Open a pull request.
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Commit changes: `git commit -m 'Add new feature'`
+4. Push to the branch: `git push origin feature-name`
+5. Open a pull request
+
+---
 
 ## License
-MIT License. See LICENSE for details.
 
-Feel free to adapt this to your specific requirements or add more sections as needed!
+MIT License. See LICENSE for details.

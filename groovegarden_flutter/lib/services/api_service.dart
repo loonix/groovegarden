@@ -1,94 +1,111 @@
 import 'dart:convert';
-import 'dart:developer';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as path;
 
 class ApiService {
-  static String baseUrl = 'http://localhost:8081';
-  static String bearer = ''; //'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MzIyMzA0ODUsInJvbGUiOiJhcnRpc3QiLCJ1c2VyX2lkIjoxfQ.4PsoGJlxQyxIKeuDuhYKO6VJtrxbcBbJgNDtXByGtBY';
-  // Fetch songs from the backend
+  static const String baseUrl = 'http://localhost:8081';
+
+  // Fetch all songs from the API
   static Future<List<dynamic>> fetchSongs(String token) async {
     final response = await http.get(
       Uri.parse('$baseUrl/songs'),
-      headers: {'Authorization': 'Bearer $token'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
     );
 
     if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+      try {
+        return jsonDecode(response.body) as List<dynamic>;
+      } catch (e) {
+        debugPrint('Error decoding response: $e');
+        throw Exception('Failed to decode songs data');
+      }
     } else {
-      throw Exception('Failed to load songs');
-    }
-  }
-
-  static Future<void> uploadSong(String title, String filePath, String jwtToken) async {
-    final uri = Uri.parse('$baseUrl/upload');
-    final request = http.MultipartRequest('POST', uri)
-      ..headers['Authorization'] = 'Bearer $jwtToken'
-      ..fields['title'] = title
-      ..files.add(await http.MultipartFile.fromPath('song', filePath));
-
-    final response = await request.send();
-    if (response.statusCode != 200) {
-      throw Exception('Failed to upload song: ${response.reasonPhrase}');
-    }
-  }
-
-  // Upload a song with bytes
-  static Future<void> uploadSongWithBytes(String title, Uint8List bytes, String fileName, String jwtToken) async {
-    final uri = Uri.parse('$baseUrl/songs/upload'); // Corrected to match backend route
-    var request = http.MultipartRequest('POST', uri)
-      ..headers['Authorization'] = 'Bearer $jwtToken'
-      ..fields['title'] = title
-      ..files.add(http.MultipartFile.fromBytes('song', bytes, filename: fileName));
-
-    final response = await request.send();
-    if (response.statusCode != 200) {
-      throw Exception('Failed to upload song: ${response.reasonPhrase}');
+      debugPrint('Error fetching songs: ${response.statusCode}, ${response.body}');
+      throw Exception('Error fetching songs: ${response.statusCode}');
     }
   }
 
   // Vote for a song
-  static Future<void> voteForSong(int songId, String jwtToken) async {
+  static Future<void> voteForSong(int songId, String token) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/vote/$songId'),
+      Uri.parse('$baseUrl/songs/vote/$songId'),
       headers: {
-        'Authorization': 'Bearer $jwtToken', // Use the provided JWT token
-      },
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to vote for song: ${response.body}');
-    }
-  }
-
-  static Future<void> addSong(String title, String url, String token) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/add'),
-      headers: {
-        'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
       },
-      body: jsonEncode({'title': title, 'url': url}),
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to upload song: ${response.body}');
+      debugPrint('Error voting for song: ${response.statusCode}, ${response.body}');
+      throw Exception('Failed to vote for song: ${response.statusCode}');
     }
   }
 
-  static Future<String> login(String email, String password) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password}),
-    );
+  // Upload a new song
+  static Future<bool> uploadSong(
+    String title,
+    String artist,
+    int duration,
+    String filePath,
+    String token,
+  ) async {
+    // Implementation depends on your file upload requirements
+    // This is a placeholder for song upload functionality
+    return true;
+  }
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['token']; // Assuming the backend returns a token
-    } else {
-      throw Exception('Invalid email or password');
+  // Upload a song with file bytes
+  static Future<bool> uploadSongWithBytes(
+    String title,
+    String artist,
+    int duration,
+    String filename,
+    Uint8List fileBytes,
+    String token,
+  ) async {
+    try {
+      // Create multipart request
+      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/songs/upload'));
+
+      // Add authorization header
+      request.headers['Authorization'] = 'Bearer $token';
+
+      // Add file
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'song',
+          fileBytes,
+          filename: path.basename(filename),
+        ),
+      );
+
+      // Add metadata
+      request.fields['title'] = title;
+      request.fields['artist'] = artist;
+      request.fields['duration'] = duration.toString();
+
+      // Send the request
+      var response = await request.send();
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        debugPrint('Song uploaded successfully');
+        return true;
+      } else {
+        debugPrint('Failed to upload song: ${response.statusCode}');
+        // Read response body
+        final responseBody = await response.stream.bytesToString();
+        debugPrint('Response: $responseBody');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Error uploading song: $e');
+      return false;
     }
   }
+
+  // Other API methods as needed...
 }

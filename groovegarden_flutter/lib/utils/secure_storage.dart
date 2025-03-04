@@ -1,3 +1,4 @@
+// TODO: Replace dart:html with package:web and dart:js_interop for future compatibility
 import 'dart:html' as html;
 
 class SecureStorage {

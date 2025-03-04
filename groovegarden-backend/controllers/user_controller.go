@@ -107,5 +107,15 @@ func GetUserByEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Update any references to User fields to match the consolidated model
+	// For example:
+	//
+	// user.Bio = userData["bio"].(string)
+	// user.Links = userData["links"]
+	// user.MusicPreferences = userData["music_preferences"]
+	// user.Location = userData["location"].(string)
+	// user.DateOfBirth = userData["date_of_birth"].(string)
+	// user.LastSeen = time.Now()
+
 	render.JSON(w, r, user)
 }
