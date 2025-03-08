@@ -179,10 +179,16 @@ class WebAudio {
     }
   }
 
-  /// Stop and clean up audio
+  /// Stop and reset playback completely
   void stopAudio() {
     if (_audioElement != null) {
       _audioElement!.pause();
+      // Reset current time to beginning
+      try {
+        _audioElement!.currentTime = 0;
+      } catch (e) {
+        debugPrint('WebAudio: Error resetting time: $e');
+      }
       _audioElement!.remove();
       _audioElement = null;
     }

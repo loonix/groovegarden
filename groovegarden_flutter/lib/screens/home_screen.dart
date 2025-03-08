@@ -1,5 +1,7 @@
 // TODO: Eventually migrate from dart:html to package:web and dart:js_interop
 // Import conditional based on platform to avoid warnings in mobile builds
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:groovegarden_flutter/screens/login_screen.dart';
@@ -281,6 +283,137 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Add a stop method to stop the current playback
+  void _stopPlayback() {
+    if (kIsWeb && webAudio != null) {
+      webAudio!.stopAudio();
+    } else {
+      _audioPlayer.stop();
+    }
+
+    setState(() {
+      _isPlaying = false;
+      _position = Duration.zero;
+    });
+  }
+
+  Widget _buildPlayerControls() {
+    final themeData = Theme.of(context);
+
+    String formatDuration(Duration duration) {
+      String twoDigits(int n) => n.toString().padLeft(2, "0");
+      String minutes = twoDigits(duration.inMinutes.remainder(60));
+      String seconds = twoDigits(duration.inSeconds.remainder(60));
+      return "$minutes:$seconds";
+    }
+
+    // Calculate slider values safely
+    double positionValue = _position.inSeconds.toDouble();
+    double maxValue = _duration.inSeconds > 0 ? _duration.inSeconds.toDouble() : 1.0;
+    if (positionValue > maxValue) positionValue = maxValue;
+
+    return SizedBox(
+      // Remove fixed height and allow content to determine size with proper constraints
+      width: double.infinity,
+      child: Material(
+        elevation: 8,
+        color: themeData.cardColor,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), // Increase bottom padding
+          child: Column(
+            mainAxisSize: MainAxisSize.min, // Use minimum vertical space
+            crossAxisAlignment: CrossAxisAlignment.start, // Align content to start
+            children: [
+              // Song info
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _currentSong?['title'] ?? 'Unknown',
+                      style: themeData.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    _currentSong?['artist'] ?? 'Unknown Artist',
+                    style: themeData.textTheme.bodyMedium?.copyWith(
+                      color: themeData.textTheme.bodyMedium?.color?.withAlpha(178),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4), // Reduced spacing
+              // Progress slider - more compact
+              Row(
+                children: [
+                  Text(formatDuration(_position), style: themeData.textTheme.bodySmall),
+                  Expanded(
+                    child: Slider(
+                      value: positionValue,
+                      min: 0.0,
+                      max: maxValue,
+                      onChanged: _seek,
+                    ),
+                  ),
+                  Text(formatDuration(_duration), style: themeData.textTheme.bodySmall),
+                ],
+              ),
+              // Player controls
+              Padding(
+                padding: const EdgeInsets.only(top: 4), // Reduced padding
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly, // Distribute buttons evenly
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.replay_10),
+                      onPressed: () => _seek(max(0, positionValue - 10)),
+                      iconSize: 26, // Slightly smaller icons
+                      tooltip: 'Rewind 10 seconds',
+                      padding: EdgeInsets.zero, // Remove padding from buttons
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.stop),
+                      onPressed: _stopPlayback,
+                      iconSize: 26,
+                      color: Colors.red,
+                      tooltip: 'Stop',
+                      padding: EdgeInsets.zero,
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: themeData.colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: Icon(
+                          _isPlaying ? Icons.pause : Icons.play_arrow,
+                          color: themeData.colorScheme.onPrimary,
+                        ),
+                        onPressed: _pausePlaySong,
+                        iconSize: 26,
+                        tooltip: _isPlaying ? 'Pause' : 'Play',
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.forward_10),
+                      onPressed: () => _seek(min(maxValue, positionValue + 10)),
+                      iconSize: 26,
+                      tooltip: 'Forward 10 seconds',
+                      padding: EdgeInsets.zero,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     debugPrint('User role: $userRole');
@@ -299,7 +432,8 @@ class HomeScreenState extends State<HomeScreen> {
       body: _songs.isEmpty
           ? const Center(child: Text("No songs available"))
           : ListView.builder(
-              padding: _currentSong != null ? EdgeInsets.only(bottom: 80) : null,
+              // Increase bottom padding to account for player controls
+              padding: _currentSong != null ? const EdgeInsets.only(bottom: 120) : null,
               itemCount: _songs.length,
               itemBuilder: (context, index) {
                 final song = _songs[index];
@@ -347,91 +481,10 @@ class HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: _currentSong != null ? _buildPlayerControls() : null,
     );
   }
-
-  Widget _buildPlayerControls() {
-    final themeData = Theme.of(context);
-
-    String formatDuration(Duration duration) {
-      String twoDigits(int n) => n.toString().padLeft(2, "0");
-      String minutes = twoDigits(duration.inMinutes.remainder(60));
-      String seconds = twoDigits(duration.inSeconds.remainder(60));
-      return "$minutes:$seconds";
-    }
-
-    // Calculate slider values safely
-    double positionValue = _position.inSeconds.toDouble();
-    double maxValue = _duration.inSeconds > 0 ? _duration.inSeconds.toDouble() : 1.0;
-    if (positionValue > maxValue) positionValue = maxValue;
-
-    return Container(
-      height: 100, // Increased height to prevent overflow
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Added vertical padding
-      decoration: BoxDecoration(
-        color: themeData.cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(25),
-            offset: const Offset(0, -1),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      // Use a ListView instead of Column to handle potential overflow
-      child: ListView(
-        // Disable scrolling physics as we want it to be static
-        physics: const NeverScrollableScrollPhysics(),
-        shrinkWrap: true,
-        children: [
-          // Song info
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _currentSong?['title'] ?? 'Unknown',
-                  style: themeData.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Text(
-                _currentSong?['artist'] ?? 'Unknown Artist',
-                style: themeData.textTheme.bodyMedium?.copyWith(
-                  color: themeData.textTheme.bodyMedium?.color?.withAlpha(178),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Progress slider - simplified to avoid overflow
-          Row(
-            children: [
-              Text(formatDuration(_position)),
-              Expanded(
-                child: Slider(
-                  value: positionValue,
-                  min: 0.0,
-                  max: maxValue,
-                  onChanged: _seek,
-                ),
-              ),
-              Text(formatDuration(_duration)),
-            ],
-          ),
-          // Play/pause button
-          Center(
-            child: IconButton(
-              icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-              onPressed: _pausePlaySong,
-              iconSize: 32,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
+// Add a min helper to complement the max helper
 extension NumExtension on num {
   num max(num other) => this > other ? this : other;
+  num min(num other) => this < other ? this : other;
 }
