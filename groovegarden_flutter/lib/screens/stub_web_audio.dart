@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 
 /// Stub implementation of WebAudio for non-web platforms
 class WebAudio {
+  /// Function to call when playback ends
+  Function? onPlaybackEnded;
+
   /// Initialize an empty WebAudio object
   WebAudio();
 
@@ -31,4 +34,13 @@ class WebAudio {
 
   /// Check if currently playing (stub)
   bool isPlaying() => false;
+
+  /// Check if audio has reached the end (stub)
+  bool hasEnded() => false;
+
+  /// Get error state (stub)
+  bool hasError() => false;
+
+  /// Get last error message (stub)
+  String getErrorMessage() => '';
 }

@@ -51,6 +51,9 @@ class HomeScreenState extends State<HomeScreen> {
     userRole = decodedJWT['role'];
     debugPrint('Decoded JWT: $decodedJWT');
 
+    // Print role just once during initialization
+    debugPrint('User role initialized: $userRole');
+
     // Fetch songs from the backend
     _fetchSongs();
 
@@ -60,6 +63,8 @@ class HomeScreenState extends State<HomeScreen> {
     // Initialize web audio helper if on web
     if (kIsWeb) {
       webAudio = WebAudio();
+      // Add a listener for playback ended event in WebAudio
+      webAudio!.onPlaybackEnded = _handlePlaybackEnded;
     }
 
     // Set up audio player listeners for mobile platforms
@@ -198,6 +203,12 @@ class HomeScreenState extends State<HomeScreen> {
               setState(() {
                 _position = webAudio!.getCurrentPosition();
                 _duration = webAudio!.getDuration();
+
+                // Check if audio has ended (as a backup to the event)
+                if (webAudio!.hasEnded() && _isPlaying) {
+                  _isPlaying = false;
+                  _handlePlaybackEnded();
+                }
               });
             }
           });
@@ -297,6 +308,45 @@ class HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  // Handle when playback ends (both platforms)
+  void _handlePlaybackEnded() {
+    if (!mounted) return;
+
+    setState(() {
+      _isPlaying = false;
+      _position = Duration.zero;
+    });
+
+    // Optional: Auto-play next song
+    _playNextSong();
+  }
+
+  // Play the next song in the list
+  void _playNextSong() {
+    if (_songs.isEmpty || _currentSong == null) return;
+
+    // Find current song index
+    final currentIndex = _songs.indexWhere((song) => song['id'] == _currentSong!['id']);
+    if (currentIndex == -1 || currentIndex >= _songs.length - 1) return;
+
+    // Get next song and play it
+    final nextSong = _songs[currentIndex + 1];
+    _playSong('${nextSong['id']}', nextSong['title'] ?? 'Unknown', nextSong);
+  }
+
+  // Play the previous song in the list
+  void _playPreviousSong() {
+    if (_songs.isEmpty || _currentSong == null) return;
+
+    // Find current song index
+    final currentIndex = _songs.indexWhere((song) => song['id'] == _currentSong!['id']);
+    if (currentIndex <= 0) return;
+
+    // Get previous song and play it
+    final prevSong = _songs[currentIndex - 1];
+    _playSong('${prevSong['id']}', prevSong['title'] ?? 'Unknown', prevSong);
+  }
+
   Widget _buildPlayerControls() {
     final themeData = Theme.of(context);
 
@@ -360,19 +410,29 @@ class HomeScreenState extends State<HomeScreen> {
                   Text(formatDuration(_duration), style: themeData.textTheme.bodySmall),
                 ],
               ),
-              // Player controls
+              // Player controls with next/previous buttons
               Padding(
                 padding: const EdgeInsets.only(top: 4), // Reduced padding
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly, // Distribute buttons evenly
                   children: [
+                    // Previous song button
+                    IconButton(
+                      icon: const Icon(Icons.skip_previous),
+                      onPressed: _playPreviousSong,
+                      iconSize: 24,
+                      tooltip: 'Previous song',
+                      padding: EdgeInsets.zero,
+                    ),
+                    // Rewind 10 seconds button
                     IconButton(
                       icon: const Icon(Icons.replay_10),
                       onPressed: () => _seek(max(0, positionValue - 10)),
-                      iconSize: 26, // Slightly smaller icons
+                      iconSize: 24,
                       tooltip: 'Rewind 10 seconds',
-                      padding: EdgeInsets.zero, // Remove padding from buttons
+                      padding: EdgeInsets.zero,
                     ),
+                    // Stop button
                     IconButton(
                       icon: const Icon(Icons.stop),
                       onPressed: _stopPlayback,
@@ -381,6 +441,7 @@ class HomeScreenState extends State<HomeScreen> {
                       tooltip: 'Stop',
                       padding: EdgeInsets.zero,
                     ),
+                    // Play/Pause button
                     Container(
                       decoration: BoxDecoration(
                         color: themeData.colorScheme.primary,
@@ -397,11 +458,20 @@ class HomeScreenState extends State<HomeScreen> {
                         padding: EdgeInsets.zero,
                       ),
                     ),
+                    // Forward 10 seconds button
                     IconButton(
                       icon: const Icon(Icons.forward_10),
                       onPressed: () => _seek(min(maxValue, positionValue + 10)),
-                      iconSize: 26,
+                      iconSize: 24,
                       tooltip: 'Forward 10 seconds',
+                      padding: EdgeInsets.zero,
+                    ),
+                    // Next song button
+                    IconButton(
+                      icon: const Icon(Icons.skip_next),
+                      onPressed: _playNextSong,
+                      iconSize: 24,
+                      tooltip: 'Next song',
                       padding: EdgeInsets.zero,
                     ),
                   ],
@@ -416,8 +486,6 @@ class HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('User role: $userRole');
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('GrooveGarden'),

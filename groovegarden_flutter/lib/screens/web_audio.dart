@@ -8,6 +8,9 @@ class WebAudio {
   bool _hasError = false;
   String _lastErrorMessage = '';
 
+  // Callback function for when playback ends
+  Function? onPlaybackEnded;
+
   /// Initialize an empty WebAudio object
   WebAudio();
 
@@ -42,7 +45,15 @@ class WebAudio {
     _audioElement!.onCanPlayThrough.listen((_) => debugPrint('WebAudio: Can play through'));
     _audioElement!.onPlay.listen((_) => debugPrint('WebAudio: Playback started'));
     _audioElement!.onPause.listen((_) => debugPrint('WebAudio: Playback paused'));
-    _audioElement!.onEnded.listen((_) => debugPrint('WebAudio: Playback ended'));
+
+    // Handle end of playback
+    _audioElement!.onEnded.listen((_) {
+      debugPrint('WebAudio: Playback ended');
+      if (onPlaybackEnded != null) {
+        onPlaybackEnded!();
+      }
+    });
+
     _audioElement!.onStalled.listen((_) => debugPrint('WebAudio: Playback stalled'));
     _audioElement!.onSeeking.listen((_) => debugPrint('WebAudio: Seeking'));
     _audioElement!.onSeeked.listen((_) => debugPrint('WebAudio: Seeked'));
@@ -221,6 +232,13 @@ class WebAudio {
   bool isPlaying() {
     if (_audioElement == null || _hasError) return false;
     return !_audioElement!.paused;
+  }
+
+  /// Check if audio has reached the end
+  bool hasEnded() {
+    if (_audioElement == null) return false;
+    // Check if we're at the end of the audio
+    return _audioElement!.ended || (_audioElement!.duration > 0 && _audioElement!.currentTime >= _audioElement!.duration - 0.5);
   }
 
   /// Get error state
