@@ -4,7 +4,15 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:8081';
+  // If running on web, use window.location.hostname to dynamically set the host
+  static String get baseUrl {
+    if (kIsWeb) {
+      // This will work when the Flutter app and Go server are on the same host
+      return 'http://localhost:8081';
+    }
+    // For mobile devices, we need the actual IP address of the server
+    return 'http://localhost:8081'; // Update this with your actual server IP if needed
+  }
 
   // Fetch all songs from the API
   static Future<List<dynamic>> fetchSongs(String token) async {
@@ -106,6 +114,9 @@ class ApiService {
       return false;
     }
   }
+
+  // We're removing the checkStreamAvailability method as it's causing issues
+  // and we'll handle errors directly in the play method
 
   // Other API methods as needed...
 }

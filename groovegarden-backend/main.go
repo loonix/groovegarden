@@ -29,6 +29,10 @@ func main() {
 	}
 	fmt.Println("Database initialized")
 
+	// Ensure uploads directory exists and fix song paths
+	controllers.EnsureUploadsDirectory()
+	controllers.FixSongPaths()
+
 	// Set up the router
 	router := chi.NewRouter()
 	router.Use(corsMiddleware)
@@ -47,6 +51,12 @@ func main() {
 	// Streaming routes
 	router.Get("/stream/start", controllers.StartStream)
 	router.Get("/stream/stop", controllers.StopStream)
+
+	// Debug routes
+	router.Get("/debug/file/{id}", controllers.DebugFileAccess)
+	router.Get("/debug/uploads", controllers.ListUploads)
+	router.Get("/debug/fixpaths", controllers.FixMissingFiles)
+	router.Get("/debug/song/{id}", controllers.GetSongDetails)
 
 	// Get OAuth credentials from environment variables
 	clientID := os.Getenv("GOOGLE_CLIENT_ID")

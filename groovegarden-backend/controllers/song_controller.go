@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -21,7 +22,7 @@ import (
 func GetSongs(w http.ResponseWriter, r *http.Request) {
 	// Connect to the database
 	db, err := database.GetDB()
-	if err != nil {
+	if (err != nil) {
 		http.Error(w, "Database connection error", http.StatusInternalServerError)
 		return
 	}
@@ -35,7 +36,7 @@ func GetSongs(w http.ResponseWriter, r *http.Request) {
 		ORDER BY s.votes DESC
 	`)
 	
-	if err != nil {
+	if (err != nil) {
 		http.Error(w, fmt.Sprintf("Error querying database: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -54,7 +55,7 @@ func GetSongs(w http.ResponseWriter, r *http.Request) {
 
 		// Scan the row into our variables
 		err := rows.Scan(&id, &title, &artist, &duration, &uploadDate, &votes, &storagePath, &artistID)
-		if err != nil {
+		if (err != nil) {
 			http.Error(w, fmt.Sprintf("Error scanning row: %v", err), http.StatusInternalServerError)
 			return
 		}
@@ -67,31 +68,31 @@ func GetSongs(w http.ResponseWriter, r *http.Request) {
 		}
 		
 		// Handle potentially NULL values
-		if title.Valid {
+		if (title.Valid) {
 			song["title"] = title.String
 		} else {
 			song["title"] = ""
 		}
 		
-		if artist.Valid {
+		if (artist.Valid) {
 			song["artist"] = artist.String
 		} else {
 			song["artist"] = "Unknown"
 		}
 		
-		if uploadDate.Valid {
+		if (uploadDate.Valid) {
 			song["upload_date"] = uploadDate.String
 		} else {
 			song["upload_date"] = ""
 		}
 		
-		if storagePath.Valid {
+		if (storagePath.Valid) {
 			song["storage_path"] = storagePath.String
 		} else {
 			song["storage_path"] = ""
 		}
 		
-		if artistID.Valid {
+		if (artistID.Valid) {
 			song["artist_id"] = artistID.Int64
 		}
 
@@ -99,7 +100,8 @@ func GetSongs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for errors from iterating over rows
-	if err := rows.Err(); err != nil {
+	err = rows.Err()
+	if err != nil {
 		http.Error(w, fmt.Sprintf("Error iterating over rows: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -114,7 +116,8 @@ func AddSong(w http.ResponseWriter, r *http.Request) {
 	var song models.Song
 	fmt.Println("Received /add request")
 
-	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
+	err := json.NewDecoder(r.Body).Decode(&song)
+	if err != nil {
 		fmt.Printf("Error decoding JSON: %v\n", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -123,7 +126,7 @@ func AddSong(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Decoded Song: %+v\n", song)
 
 	// Changed from song.FilePath to song.StoragePath
-	_, err := database.DB.Exec("INSERT INTO songs (title, storage_path, votes) VALUES ($1, $2, 0)", song.Title, song.StoragePath)
+	_, err = database.DB.Exec("INSERT INTO songs (title, storage_path, votes) VALUES ($1, $2, 0)", song.Title, song.StoragePath)
 	if (err != nil) {
 		fmt.Printf("Error inserting into DB: %v\n", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -213,16 +216,14 @@ func UploadSong(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Save the file to the uploads directory
-	uploadDir := "./uploads/"
-	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
-			http.Error(w, "Failed to create upload directory", http.StatusInternalServerError)
-			return
-		}
-	}
+	// Ensure uploads directory exists
+	EnsureUploadsDirectory()
 
-	filePath := uploadDir + handler.Filename
+	// Sanitize the filename to avoid spaces and other issues
+	sanitizedFilename := SanitizeFilePath(handler.Filename)
+	filePath := sanitizedFilename
+
+	// Create the destination file
 	dst, err := os.Create(filePath)
 	if (err != nil) {
 		http.Error(w, "Failed to save file", http.StatusInternalServerError)
@@ -230,13 +231,14 @@ func UploadSong(w http.ResponseWriter, r *http.Request) {
 	}
 	defer dst.Close()
 
+	// Copy file contents
 	_, err = io.Copy(dst, file)
 	if (err != nil) {
 		http.Error(w, "Failed to save file", http.StatusInternalServerError)
 		return
 	}
 
-	// Save song metadata to the database - fixed variable name typo
+	// Save song metadata to the database
 	_, err = database.DB.Exec(
 		"INSERT INTO songs (title, storage_path, votes, artist_id) VALUES ($1, $2, 0, $3)",
 		handler.Filename, filePath, userID,
@@ -247,7 +249,7 @@ func UploadSong(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log successful upload
-	log.Printf("Song uploaded successfully by user_id %d: %s", userID, handler.Filename)
+	log.Printf("Song uploaded successfully by user_id %d: %s (stored at %s)", userID, handler.Filename, filePath)
 	render.JSON(w, r, map[string]string{"message": "Song uploaded successfully", "file_path": filePath})
 }
 
@@ -256,18 +258,118 @@ func StreamSong(w http.ResponseWriter, r *http.Request) {
 	// Get the song ID from the URL parameter
 	songID := chi.URLParam(r, "id")
 
-	// Fetch the file path from the database - changed file_path to storage_path
+	log.Printf("Stream request for song ID: %s", songID)
+
+	// Fetch the file path from the database
 	var filePath string
 	err := database.DB.QueryRow("SELECT storage_path FROM songs WHERE id = $1", songID).Scan(&filePath)
 	if (err != nil) {
-		if err == sql.ErrNoRows {
+		if (err == sql.ErrNoRows) {
+			log.Printf("Song ID %s not found in database", songID)
 			http.Error(w, "Song not found", http.StatusNotFound)
 			return
 		}
+		log.Printf("Database error for song ID %s: %v", songID, err)
 		http.Error(w, "Failed to fetch song", http.StatusInternalServerError)
 		return
 	}
 
+	log.Printf("Retrieved file path: %s", filePath)
+
+	// Check if file exists
+	fileInfo, err := os.Stat(filePath)
+	if (os.IsNotExist(err)) {
+		log.Printf("File not found: %s", filePath)
+		http.Error(w, fmt.Sprintf("File not found: %s", filePath), http.StatusNotFound)
+		return
+	} else if (err != nil) {
+		log.Printf("Error checking file %s: %v", filePath, err)
+		http.Error(w, "Error accessing file", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("File found: %s, size: %d bytes", filePath, fileInfo.Size())
+
+	// Set proper content type based on file extension
+	contentType := "audio/mpeg" // Default to MP3
+	if (strings.HasSuffix(filePath, ".aac")) {
+		contentType = "audio/aac"
+	}
+	w.Header().Set("Content-Type", contentType)
+	
+	// Add CORS headers to allow streaming from any origin
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Range")
+	w.Header().Set("Accept-Ranges", "bytes")
+
+	// Handle OPTIONS request (CORS preflight)
+	if (r.Method == "OPTIONS") {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Open and read the file
+	file, err := os.Open(filePath)
+	if (err != nil) {
+		log.Printf("Error opening file %s: %v", filePath, err)
+		http.Error(w, "Error opening file", http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
 	// Stream the file to the client
-	http.ServeFile(w, r, filePath)
+	http.ServeContent(w, r, fileInfo.Name(), fileInfo.ModTime(), file)
+}
+
+// Add a debug endpoint to check if files exist and are accessible
+func DebugFileAccess(w http.ResponseWriter, r *http.Request) {
+	songID := chi.URLParam(r, "id")
+	
+	// Get file path from database
+	var filePath string
+	err := database.DB.QueryRow("SELECT storage_path FROM songs WHERE id = $1", songID).Scan(&filePath)
+	if (err != nil) {
+		render.JSON(w, r, map[string]interface{}{
+			"error":   true,
+			"message": fmt.Sprintf("Database error: %v", err),
+		})
+		return
+	}
+	
+	// Check if file exists
+	fileInfo, err := os.Stat(filePath)
+	if (err != nil) {
+		render.JSON(w, r, map[string]interface{}{
+			"error":   true,
+			"message": fmt.Sprintf("File error: %v", err),
+			"path":    filePath,
+		})
+		return
+	}
+	
+	// Try to open the file
+	file, err := os.Open(filePath)
+	if (err != nil) {
+		render.JSON(w, r, map[string]interface{}{
+			"error":   true,
+			"message": fmt.Sprintf("File open error: %v", err),
+			"path":    filePath,
+		})
+		return
+	}
+	defer file.Close()
+	
+	// Read first 16 bytes to check if file is readable
+	header := make([]byte, 16)
+	n, err := file.Read(header)
+	
+	render.JSON(w, r, map[string]interface{}{
+		"error":      false,
+		"message":    "File exists and is accessible",
+		"path":       filePath,
+		"size":       fileInfo.Size(),
+		"bytes_read": n,
+		"header":     fmt.Sprintf("%x", header[:n]),
+	})
 }
