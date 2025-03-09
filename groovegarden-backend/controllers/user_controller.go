@@ -5,12 +5,55 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 
 	"groovegarden/database"
 	"groovegarden/models"
 )
+
+// GetUserByID retrieves a user from the database by ID
+func GetUserByID(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from URL parameters
+	idParam := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		http.Error(w, "Invalid user ID format", http.StatusBadRequest)
+		return
+	}
+
+	// Query the database for the user
+	var user models.User
+	err = database.DB.QueryRow(
+		`SELECT id, name, email, account_type, profile_picture, bio, links, 
+		music_preferences, location, date_of_birth, created_at, last_seen 
+		FROM users WHERE id = $1`, id,
+	).Scan(
+		&user.ID, &user.Name, &user.Email, &user.AccountType, &user.ProfilePicture, 
+		&user.Bio, &user.Links, &user.MusicPreferences, &user.Location, 
+		&user.DateOfBirth, &user.CreatedAt, &user.LastSeen,
+	)
+
+	if err == sql.ErrNoRows {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, fmt.Sprintf("Database error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Map account_type to role for API consistency
+	response := map[string]interface{}{
+		"id":    user.ID,
+		"name":  user.Name,
+		"email": user.Email,
+		"role":  user.AccountType, // Send 'account_type' as 'role'
+	}
+
+	render.JSON(w, r, response)
+}
 
 // UpsertUserFromOAuth creates or updates a user in the database
 func UpsertUserFromOAuth(user map[string]interface{}) (int, error) {

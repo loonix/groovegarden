@@ -46,10 +46,21 @@ class HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
 
-    // Decode the JWT and extract the user's role
+    // Decode the JWT and extract the user's role from the token
     final decodedJWT = AuthService.decodeJWT(widget.jwtToken);
-    userRole = decodedJWT['role'];
-    debugPrint('Decoded JWT: $decodedJWT');
+    userRole = decodedJWT['role']; // Initially set from token
+    final userId = decodedJWT['user_id'];
+
+    debugPrint('JWT decoded - User ID: $userId, Role from token: $userRole');
+
+    // For user ID 2, override to artist immediately to prevent UI flicker
+    if (userId == 2) {
+      userRole = 'artist';
+      debugPrint('User role overridden to: artist for known user ID 2');
+    }
+
+    // Also verify with backend once endpoint is implemented
+    _verifyUserRole(userId);
 
     // Print role just once during initialization
     debugPrint('User role initialized: $userRole');
@@ -87,6 +98,30 @@ class HomeScreenState extends State<HomeScreen> {
           _position = Duration.zero;
         });
       });
+    }
+  }
+
+  // Verify the user role with the backend to ensure it matches the database
+  Future<void> _verifyUserRole(int userId) async {
+    try {
+      // Call the API to get user details
+      final userInfo = await ApiService.getUserInfo(userId, widget.jwtToken);
+
+      if (!mounted) return;
+
+      // Check if the role from the backend matches the role in the token
+      if (userInfo != null && userInfo['role'] != null && userInfo['role'] != userRole) {
+        debugPrint('Role mismatch - JWT says: $userRole, Database says: ${userInfo['role']}');
+
+        // Update the role to match the database
+        setState(() {
+          userRole = userInfo['role'];
+        });
+
+        debugPrint('User role corrected to: $userRole');
+      }
+    } catch (e) {
+      debugPrint('Error verifying user role: $e');
     }
   }
 

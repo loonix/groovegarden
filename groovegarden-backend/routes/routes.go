@@ -48,6 +48,7 @@ func RegisterRoutes(router *chi.Mux) {
 	router.Route("/users", func(r chi.Router) {
 		r.Post("/upsert", controllers.UpsertUser)
 		r.Get("/", controllers.GetUserByEmail)
+		r.Get("/{id}", controllers.GetUserByID)
 	})
 
 	// Utility routes
