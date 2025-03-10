@@ -4,13 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
+	"github.com/go-chi/render"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
+	"groovegarden/database"
 	"groovegarden/utils"
 )
 
@@ -151,4 +155,89 @@ func fetchGoogleUserInfo(token *oauth2.Token) (*struct {
 	}
 
 	return &userInfo, nil
+}
+
+// RefreshToken handles token refresh requests
+func RefreshToken(w http.ResponseWriter, r *http.Request) {
+	// Check if JWT_SECRET is set
+	if os.Getenv("JWT_SECRET") == "" {
+		log.Println("ERROR: JWT_SECRET not set during token refresh")
+	}
+
+	// Extract the token from the Authorization header
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		http.Error(w, "Authorization header missing", http.StatusUnauthorized)
+		return
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	if tokenString == authHeader {
+		http.Error(w, "Invalid token format", http.StatusUnauthorized)
+		return
+	}
+
+	// Log token details for debugging
+	log.Printf("Token refresh request received, token length: %d", len(tokenString))
+
+	// Validate the JWT and extract claims with better error handling
+	claims, err := utils.ValidateJWTAndGetClaims(tokenString)
+	if err != nil {
+		// Even if token is expired, try to extract the claims
+		log.Printf("Token validation failed, attempting to extract claims without validation: %v", err)
+		claims, err = utils.ExtractClaimsWithoutValidation(tokenString)
+		if err != nil {
+			log.Printf("Failed to extract claims: %v", err)
+			http.Error(w, "Invalid token format: "+err.Error(), http.StatusUnauthorized)
+			return
+		}
+	}
+
+	// Extract user ID from claims with better type handling
+	userIDValue, ok := claims["user_id"]
+	if !ok {
+		http.Error(w, "Invalid token: missing user_id claim", http.StatusUnauthorized)
+		return
+	}
+
+	// Handle different numeric types that might come from JSON
+	var userID int
+	switch v := userIDValue.(type) {
+	case float64:
+		userID = int(v)
+	case int:
+		userID = v
+	case int64:
+		userID = int(v)
+	default:
+		log.Printf("Invalid user_id type: %T %v", userIDValue, userIDValue)
+		http.Error(w, "Invalid user_id format in token", http.StatusUnauthorized)
+		return
+	}
+
+	// Get user role from database
+	var role string
+	err = database.DB.QueryRow("SELECT account_type FROM users WHERE id = $1", userID).Scan(&role)
+	if err != nil {
+		log.Printf("Database error when fetching user role: %v", err)
+		http.Error(w, "Failed to retrieve user: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Generate a new token with error handling
+	newToken, err := utils.GenerateJWT(userID, role)
+	if err != nil {
+		log.Printf("Error generating new token: %v", err)
+		http.Error(w, "Failed to generate new token: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Token refreshed successfully for user %d", userID)
+	
+	// Return the new token
+	render.JSON(w, r, map[string]interface{}{
+		"token": newToken,
+		"user_id": userID,
+		"role": role,
+	})
 }

@@ -20,8 +20,22 @@ func main() {
 	// Load environment variables
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Printf("Warning: Error loading .env file: %v", err)
+		log.Println("Will attempt to use environment variables if set")
 	}
+
+	// Verify critical environment variables
+	// Check and set default JWT_SECRET if missing
+	if os.Getenv("JWT_SECRET") == "" {
+		defaultSecret := "groovegarden_default_secret_key_for_development_only"
+		log.Printf("WARNING: JWT_SECRET not set. Using default secret for development. DO NOT USE IN PRODUCTION!")
+		os.Setenv("JWT_SECRET", defaultSecret)
+	}
+
+	// Log key configuration values
+	log.Printf("Configuration: JWT_SECRET set: %v, SERVER_PORT: %s", 
+		os.Getenv("JWT_SECRET") != "", 
+		os.Getenv("SERVER_PORT"))
 
 	// Initialize database connection
 	if err := database.Connect(); err != nil {

@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -216,6 +217,17 @@ func UploadSong(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get duration from form or default to 0 if not provided or invalid
+	duration := 0
+	if durationStr := r.FormValue("duration"); durationStr != "" {
+		duration, err = strconv.Atoi(durationStr)
+		if err != nil {
+			// If duration can't be parsed, just log it and continue with 0
+			log.Printf("Warning: Invalid duration value '%s', defaulting to 0", durationStr)
+			duration = 0
+		}
+	}
+
 	// Ensure uploads directory exists
 	EnsureUploadsDirectory()
 
@@ -238,10 +250,21 @@ func UploadSong(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get title and artist from form or use defaults
+	title := r.FormValue("title")
+	if title == "" {
+		title = handler.Filename // Use filename as title if not provided
+	}
+	
+	artist := r.FormValue("artist")
+	if artist == "" {
+		artist = "Unknown Artist" // Default artist name
+	}
+
 	// Save song metadata to the database
 	_, err = database.DB.Exec(
-		"INSERT INTO songs (title, storage_path, votes, artist_id) VALUES ($1, $2, 0, $3)",
-		handler.Filename, filePath, userID,
+		"INSERT INTO songs (title, artist, storage_path, votes, duration, artist_id) VALUES ($1, $2, $3, 0, $4, $5)",
+		title, artist, filePath, duration, userID,
 	)
 	if (err != nil) {
 		http.Error(w, "Failed to save song metadata", http.StatusInternalServerError)
@@ -249,7 +272,7 @@ func UploadSong(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log successful upload
-	log.Printf("Song uploaded successfully by user_id %d: %s (stored at %s)", userID, handler.Filename, filePath)
+	log.Printf("Song uploaded successfully by user_id %d: %s (stored at %s), duration: %d seconds", userID, title, filePath, duration)
 	render.JSON(w, r, map[string]string{"message": "Song uploaded successfully", "file_path": filePath})
 }
 

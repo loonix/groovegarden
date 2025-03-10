@@ -51,6 +51,11 @@ func RegisterRoutes(router *chi.Mux) {
 		r.Get("/{id}", controllers.GetUserByID)
 	})
 
+	// Add token refresh route
+	router.Route("/auth", func(r chi.Router) {
+		r.Post("/refresh", controllers.RefreshToken)
+	})
+
 	// Utility routes
 	router.Get("/generate-token", func(w http.ResponseWriter, r *http.Request) {
 		token, err := utils.GenerateJWT(1, "artist") // Example: Generate a token for User ID 1
