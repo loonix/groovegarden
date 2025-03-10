@@ -53,12 +53,6 @@ class HomeScreenState extends State<HomeScreen> {
 
     debugPrint('JWT decoded - User ID: $userId, Role from token: $userRole');
 
-    // For user ID 2, override to artist immediately to prevent UI flicker
-    if (userId == 2) {
-      userRole = 'artist';
-      debugPrint('User role overridden to: artist for known user ID 2');
-    }
-
     // Also verify with backend once endpoint is implemented
     _verifyUserRole(userId);
 
@@ -109,8 +103,13 @@ class HomeScreenState extends State<HomeScreen> {
 
       if (!mounted) return;
 
+      if (userInfo == null) {
+        debugPrint('Failed to get user info from API, using role from JWT');
+        return;
+      }
+
       // Check if the role from the backend matches the role in the token
-      if (userInfo != null && userInfo['role'] != null && userInfo['role'] != userRole) {
+      if (userInfo['role'] != null && userInfo['role'] != userRole) {
         debugPrint('Role mismatch - JWT says: $userRole, Database says: ${userInfo['role']}');
 
         // Update the role to match the database

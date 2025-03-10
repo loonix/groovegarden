@@ -142,6 +142,8 @@ class ApiService {
   /// Get user information
   static Future<Map<String, dynamic>?> getUserInfo(int userId, String token) async {
     try {
+      debugPrint('Fetching user info for user ID: $userId');
+
       final response = await http.get(
         Uri.parse('$baseUrl/users/$userId'),
         headers: {
@@ -155,21 +157,13 @@ class ApiService {
         debugPrint('User info received: $data');
         return data;
       } else {
+        // Log the error but don't fall back to hardcoded data
         debugPrint('Failed to fetch user info: ${response.statusCode}');
-        // Return a fallback for user ID 2 (Daniel C) until the endpoint is fixed
-        if (userId == 2) {
-          debugPrint('Using hardcoded fallback for user ID 2');
-          return {"id": 2, "name": "Daniel C", "email": "geral4x@gmail.com", "role": "artist"};
-        }
+        debugPrint('Response body: ${response.body}');
         return null;
       }
     } catch (e) {
       debugPrint('Exception when fetching user info: $e');
-      // Return a fallback for user ID 2 (Daniel C) until the endpoint is fixed
-      if (userId == 2) {
-        debugPrint('Using hardcoded fallback for user ID 2 after exception');
-        return {"id": 2, "name": "Daniel C", "email": "geral4x@gmail.com", "role": "artist"};
-      }
       return null;
     }
   }
