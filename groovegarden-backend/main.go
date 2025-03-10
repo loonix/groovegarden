@@ -41,7 +41,7 @@ func main() {
 	if err := database.Connect(); err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	fmt.Println("Database initialized")
+	fmt.Println("Database initialized successfully")
 
 	// Ensure uploads directory exists and fix song paths
 	controllers.EnsureUploadsDirectory()

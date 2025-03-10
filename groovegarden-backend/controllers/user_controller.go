@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -16,6 +17,9 @@ import (
 
 // GetUserByID retrieves a user from the database by ID
 func GetUserByID(w http.ResponseWriter, r *http.Request) {
+	// Log request for debugging
+	log.Printf("GetUserByID request received for ID: %s", chi.URLParam(r, "id"))
+
 	// Get user ID from URL parameters
 	idParam := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idParam)
@@ -24,22 +28,24 @@ func GetUserByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Query the database for the user
-	var user models.User
+	// Query the database for the user - simplified query to avoid NULL issues
+	var user struct {
+		ID         int            `json:"id"`
+		Name       string         `json:"name"`
+		Email      string         `json:"email"`
+		AccountType string        `json:"account_type"`
+	}
+
 	err = database.DB.QueryRow(
-		`SELECT id, name, email, account_type, profile_picture, bio, links, 
-		music_preferences, location, date_of_birth, created_at, last_seen 
-		FROM users WHERE id = $1`, id,
-	).Scan(
-		&user.ID, &user.Name, &user.Email, &user.AccountType, &user.ProfilePicture, 
-		&user.Bio, &user.Links, &user.MusicPreferences, &user.Location, 
-		&user.DateOfBirth, &user.CreatedAt, &user.LastSeen,
-	)
+		`SELECT id, name, email, account_type FROM users WHERE id = $1`, id,
+	).Scan(&user.ID, &user.Name, &user.Email, &user.AccountType)
 
 	if err == sql.ErrNoRows {
+		log.Printf("User with ID %d not found", id)
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	} else if err != nil {
+		log.Printf("Database error retrieving user %d: %v", id, err)
 		http.Error(w, fmt.Sprintf("Database error: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -52,6 +58,7 @@ func GetUserByID(w http.ResponseWriter, r *http.Request) {
 		"role":  user.AccountType, // Send 'account_type' as 'role'
 	}
 
+	log.Printf("User retrieved successfully: %+v", response)
 	render.JSON(w, r, response)
 }
 
