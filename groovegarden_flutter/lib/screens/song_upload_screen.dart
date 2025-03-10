@@ -1,10 +1,12 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'dart:typed_data';
-import '../services/api_service.dart';
+import 'package:groovegarden_flutter/services/api_service.dart';
+import 'package:groovegarden_flutter/services/auth_service.dart';
+import 'package:just_audio/just_audio.dart';
 
 class SongUploadScreen extends StatefulWidget {
-  final String jwtToken; // Pass JWT token for authorization
+  final String jwtToken;
 
   const SongUploadScreen({super.key, required this.jwtToken});
 
@@ -14,113 +16,170 @@ class SongUploadScreen extends StatefulWidget {
 
 class SongUploadScreenState extends State<SongUploadScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _artistController = TextEditingController();
-  final TextEditingController _durationController = TextEditingController();
-  String? _selectedFilename;
-  Uint8List? _selectedFileBytes;
-  bool _isUploading = false;
+  final _titleController = TextEditingController();
+  final _artistController = TextEditingController();
 
-  Future<void> _pickFile() async {
+  String? _filename;
+  Uint8List? _fileBytes;
+  bool _isUploading = false;
+  bool _uploadSuccess = false;
+  String _errorMessage = '';
+  int _duration = 0; // Duration in seconds, will be extracted from file
+
+  Future<void> _pickAudioFile() async {
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.any, // Allow any file type
+        type: FileType.audio,
+        allowMultiple: false,
       );
 
-      if (result != null) {
-        final fileName = result.files.single.name.toLowerCase();
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        setState(() {
+          _filename = file.name;
+          _fileBytes = file.bytes;
+          _duration = 0; // Reset duration, will extract from file
+          _errorMessage = '';
+        });
 
-        // Validate file extension
-        if (fileName.endsWith('.mp3') || fileName.endsWith('.aac')) {
-          setState(() {
-            _selectedFilename = result.files.single.name; // Store filename
-            _selectedFileBytes = result.files.single.bytes; // Store file bytes
-          });
-        } else {
-          // Invalid file type
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid file type. Only MP3 and AAC files are allowed.')),
-          );
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No file selected')),
-        );
+        // Extract duration from audio file
+        await _extractDurationFromFile(file);
       }
     } catch (e) {
-      print('Error picking file: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking file: $e')),
-      );
+      setState(() {
+        _errorMessage = 'Error picking file: $e';
+      });
+    }
+  }
+
+  Future<void> _extractDurationFromFile(PlatformFile file) async {
+    try {
+      // Create a temporary audio player to extract metadata
+      final player = AudioPlayer();
+
+      try {
+        Duration? duration;
+
+        if (kIsWeb) {
+          // For web, we can't use file paths or data URIs directly with just_audio
+          // Instead, we'll skip duration extraction on web for now
+          debugPrint('Skipping duration extraction on web');
+          // Estimate duration based on file size (very rough estimate)
+          if (file.size > 0) {
+            // Rough estimate: ~1MB per minute for typical MP3
+            final estimatedDurationInSeconds = (file.size / 1000000) * 60;
+            duration = Duration(seconds: estimatedDurationInSeconds.round());
+            debugPrint('Estimated duration from file size: ${duration.inSeconds} seconds');
+          }
+        } else {
+          // For mobile platforms, we use the file path
+          if (file.path != null) {
+            duration = await player.setFilePath(file.path!);
+          }
+        }
+
+        if (duration != null) {
+          setState(() {
+            _duration = duration!.inSeconds;
+          });
+          debugPrint('Audio duration: ${duration.inSeconds} seconds');
+        }
+      } finally {
+        // Clean up
+        await player.dispose();
+      }
+    } catch (e) {
+      debugPrint('Error extracting duration: $e');
+      // If we can't extract the duration, we'll just leave it at 0
+      // and let the backend handle it
     }
   }
 
   Future<void> _uploadSong() async {
-    if (_selectedFileBytes == null || _selectedFilename == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a file to upload')),
-        );
-      }
-      return;
-    }
+    if (_formKey.currentState!.validate() && _fileBytes != null) {
+      setState(() {
+        _isUploading = true;
+        _errorMessage = '';
+      });
 
-    final title = _titleController.text;
-    final artist = _artistController.text;
-    int? duration;
-
-    try {
-      duration = int.parse(_durationController.text);
-    } catch (e) {
-      debugPrint('Invalid duration: $_durationController.text');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter a valid duration in seconds')),
-        );
-      }
-      return;
-    }
-
-    setState(() {
-      _isUploading = true;
-    });
-
-    try {
-      // Fix function call with correct parameters
-      final success = await ApiService.uploadSongWithBytes(
-        title, // String title
-        artist, // String artist
-        duration, // int duration
-        _selectedFilename!, // String filename
-        _selectedFileBytes!, // Uint8List fileBytes
-        widget.jwtToken, // String token
-      );
-
-      if (mounted) {
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Song uploaded successfully!')),
-          );
-          Navigator.pop(context); // Go back to the previous screen
+      try {
+        // Check if token is expired
+        if (AuthService.isTokenExpired(widget.jwtToken)) {
+          final newToken = await AuthService.refreshToken(widget.jwtToken);
+          if (newToken != null) {
+            debugPrint('Token refreshed before upload');
+            // Use new token
+            final success = await ApiService.uploadSongWithBytes(
+              _titleController.text,
+              _artistController.text,
+              _duration,
+              _filename ?? 'unknown.mp3',
+              _fileBytes!,
+              newToken,
+            );
+            _handleUploadResult(success);
+          } else {
+            // Token refresh failed, try with original token
+            debugPrint('Token refresh failed, trying upload with original token');
+            final success = await ApiService.uploadSongWithBytes(
+              _titleController.text,
+              _artistController.text,
+              _duration,
+              _filename ?? 'unknown.mp3',
+              _fileBytes!,
+              widget.jwtToken,
+            );
+            _handleUploadResult(success);
+          }
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to upload song')),
+          // Token not expired, use it directly
+          final success = await ApiService.uploadSongWithBytes(
+            _titleController.text,
+            _artistController.text,
+            _duration,
+            _filename ?? 'unknown.mp3',
+            _fileBytes!,
+            widget.jwtToken,
           );
+          _handleUploadResult(success);
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isUploading = false;
+            _errorMessage = 'Upload error: $e';
+          });
         }
       }
-    } catch (e) {
-      debugPrint('Error during upload: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('An error occurred during upload')),
-        );
+    }
+  }
+
+  void _handleUploadResult(bool success) {
+    if (!mounted) return;
+
+    setState(() {
+      _isUploading = false;
+      _uploadSuccess = success;
+      if (!success) {
+        _errorMessage = 'Upload failed. Please try again or log out and log back in.';
+      } else {
+        // Reset form on success
+        _titleController.clear();
+        _artistController.clear();
+        _filename = null;
+        _fileBytes = null;
+        _duration = 0;
       }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isUploading = false;
-        });
-      }
+    });
+
+    if (success) {
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Song uploaded successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
     }
   }
 
@@ -128,61 +187,87 @@ class SongUploadScreenState extends State<SongUploadScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Upload Song'),
+        title: const Text('Upload a Song'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: Column(
+          child: ListView(
             children: [
               TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Song Title'),
-                validator: (value) => value == null || value.isEmpty ? 'Enter a song title' : null,
+                decoration: const InputDecoration(labelText: 'Title'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a title';
+                  }
+                  return null;
+                },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _artistController,
                 decoration: const InputDecoration(labelText: 'Artist'),
-                validator: (value) => value == null || value.isEmpty ? 'Enter the artist name' : null,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter an artist name';
+                  }
+                  return null;
+                },
               ),
-              const SizedBox(height: 20),
-              TextFormField(
-                controller: _durationController,
-                decoration: const InputDecoration(labelText: 'Duration (seconds)'),
-                validator: (value) => value == null || value.isEmpty ? 'Enter the duration in seconds' : null,
-                keyboardType: TextInputType.number,
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: _pickAudioFile,
+                icon: const Icon(Icons.audio_file),
+                label: Text(_filename != null ? 'Change File' : 'Select Audio File'),
               ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _pickFile,
-                child: const Text('Select Song File'),
-              ),
-              if (_selectedFilename != null)
+              if (_filename != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 10.0),
+                  padding: const EdgeInsets.only(top: 12.0),
                   child: Text(
-                    'Selected File: $_selectedFilename', // Use name instead of path
-                    style: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
+                    'Selected: $_filename${_duration > 0 ? ' (${_formatDuration(_duration)})' : ''}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
-              const SizedBox(height: 20),
-              if (_isUploading)
-                const CircularProgressIndicator()
-              else
-                ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      _uploadSong();
-                    }
-                  },
-                  child: const Text('Upload Song'),
+              const SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: _isUploading || _fileBytes == null ? null : _uploadSong,
+                child: _isUploading ? const CircularProgressIndicator() : const Text('Upload Song'),
+              ),
+              if (_errorMessage.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16.0),
+                  child: Text(
+                    _errorMessage,
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+                ),
+              if (_uploadSuccess)
+                const Padding(
+                  padding: EdgeInsets.only(top: 16.0),
+                  child: Text(
+                    'Song uploaded successfully!',
+                    style: TextStyle(color: Colors.green),
+                  ),
                 ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _formatDuration(int seconds) {
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
+    return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _artistController.dispose();
+    super.dispose();
   }
 }

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
+import 'package:groovegarden_flutter/services/auth_service.dart';
 
 class ApiService {
   // If running on web, use window.location.hostname to dynamically set the host
@@ -76,6 +77,17 @@ class ApiService {
     String token,
   ) async {
     try {
+      // First check if token needs refreshing
+      if (AuthService.isTokenExpired(token)) {
+        debugPrint('Token is expired, attempting to refresh before upload');
+        final newToken = await AuthService.refreshToken(token);
+        if (newToken != null) {
+          token = newToken;
+        } else {
+          debugPrint('Token refresh failed, upload may fail');
+        }
+      }
+
       // Create multipart request
       var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/songs/upload'));
 
@@ -97,16 +109,28 @@ class ApiService {
       request.fields['duration'] = duration.toString();
 
       // Send the request
-      var response = await request.send();
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         debugPrint('Song uploaded successfully');
         return true;
       } else {
         debugPrint('Failed to upload song: ${response.statusCode}');
-        // Read response body
-        final responseBody = await response.stream.bytesToString();
-        debugPrint('Response: $responseBody');
+        debugPrint('Response: ${response.body}');
+
+        // Handle expired token
+        if (response.statusCode == 401 && response.body.contains('token is expired')) {
+          debugPrint('Token expired during upload, refreshing and retrying');
+
+          // Try to refresh token
+          final newToken = await AuthService.refreshToken(token);
+          if (newToken != null) {
+            // Retry with new token
+            return uploadSongWithBytes(title, artist, duration, filename, fileBytes, newToken);
+          }
+        }
+
         return false;
       }
     } catch (e) {
@@ -149,9 +173,4 @@ class ApiService {
       return null;
     }
   }
-
-  // We're removing the checkStreamAvailability method as it's causing issues
-  // and we'll handle errors directly in the play method
-
-  // Other API methods as needed...
 }
