@@ -2,6 +2,9 @@
 
 GrooveGarden is a radio-style music streaming platform where users can upload songs, vote for the next track to play, and enjoy synchronized music streaming. The application includes a Go backend server, a Flutter web frontend, and an Icecast streaming server.
 
+Join our discord channel: https://discord.gg/8pem5GAe
+
+
 ---
 
 ## Features
